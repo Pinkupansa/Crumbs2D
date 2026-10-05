@@ -4,3 +4,9 @@
 [submodule "Sandbox/vendor/raylib"]
 	path = Sandbox/vendor/raylib
 	url = https://github.com/raysan5/raylib.git
+[submodule "Sandbox/vendor/imgui"]
+	path = Sandbox/vendor/imgui
+	url = https://github.com/ocornut/imgui.git
+[submodule "Sandbox/vendor/rlImGui"]
+	path = Sandbox/vendor/rlImGui
+	url = https://github.com/raylib-extras/rlImGui.git
