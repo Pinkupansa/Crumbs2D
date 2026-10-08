@@ -16,7 +16,7 @@ file(GLOB_RECURSE SANDBOX_SOURCES CONFIGURE_DEPENDS
 
 add_executable(Sandbox ${SANDBOX_SOURCES})
 
-target_include_directories(Sandbox PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(Sandbox PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_features(Sandbox PRIVATE cxx_std_20)
 target_link_libraries(Sandbox PRIVATE raylib Crumbs2D::crumbs2d)
 
