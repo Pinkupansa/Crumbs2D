@@ -43,6 +43,15 @@ public:
     void SetMass(float mass) const;
     float GetMass() const;
 
+    void SetLinearDrag(float linearDrag) const;
+    float GetLinearDrag() const;
+
+    void SetAngularDrag(float angularDrag) const;
+    float GetAngularDrag() const;
+
+    void SetIsStatic(bool isStatic) const;
+    bool IsStatic() const;
+
     void AddForce(glm::vec2 force) const;
     void AddTorque(float torque) const;
 };

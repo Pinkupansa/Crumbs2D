@@ -22,11 +22,6 @@ void ExampleScene::OnUpdate(float dt)
         m_BoxBody.SetVelocity((m_BoxBody.GetPosition() - m_Camera.ScreenToWorld(RLInput::GetMousePosition())) * 2.0f);
         m_BoxBody.SetAngularVelocity(10);
     }
-
-    m_BoxBody.AddForce({0, -9.81f});
-    m_BoxBody.AddForce(-0.1f * m_BoxBody.GetVelocity());
-    m_BoxBody.AddTorque(-1.0f * m_BoxBody.GetAngularVelocity());
-
     m_World.Step(dt);
 }
 

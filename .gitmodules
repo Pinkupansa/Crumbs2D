@@ -10,3 +10,6 @@
 [submodule "Sandbox/vendor/rlImGui"]
 	path = Sandbox/vendor/rlImGui
 	url = https://github.com/raylib-extras/rlImGui.git
+[submodule "Tests/vendor/doctest"]
+	path = Tests/vendor/doctest
+	url = https://github.com/doctest/doctest.git
