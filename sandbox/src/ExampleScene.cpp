@@ -7,21 +7,31 @@
 
 #include <cmath>
 
+void ExampleScene::OnInit()
+{
+    m_BoxBody = m_World.AddBody();
+    m_BoxBody.SetPosition({0, 2});
+}
 void ExampleScene::OnUpdate(float dt)
 {
     UpdateCameraNavigation();
-
-    // La caméra doit être transmise avant BeginWorld(), appelé par SandboxApp.
     RLRenderer::SetCamera(m_Camera);
 
-    m_Angle += dt;
+    if (RLInput::IsMouseButtonPressed(InputMouseButton::Left))
+    {
+        m_BoxBody.SetVelocity((m_BoxBody.GetPosition() - m_Camera.ScreenToWorld(RLInput::GetMousePosition())) * 2.0f);
+        m_BoxBody.SetAngularVelocity(10);
+    }
+
+    m_BoxBody.AddForce({0, -9.81f});
+    m_BoxBody.AddForce(-0.1f * m_BoxBody.GetVelocity());
+    m_BoxBody.AddTorque(-1.0f * m_BoxBody.GetAngularVelocity());
+
+    m_World.Step(dt);
 }
 
 void ExampleScene::OnDraw()
-{
-    RLRenderer::DrawCircle({2.0f, 1.0f}, 1.0f, {255, 161, 0, 255});
-    RLRenderer::DrawBox({-3.0f, 2.0f}, {1.0f, 0.5f}, m_Angle, {0, 121, 241, 255});
-}
+{ RLRenderer::DrawBox(m_BoxBody.GetPosition(), {2, 1}, m_BoxBody.GetRotation(), {0, 255, 0}); }
 
 void ExampleScene::OnImGuiRender()
 {
@@ -32,8 +42,9 @@ void ExampleScene::OnImGuiRender()
     ImGui::Begin("Camera");
     ImGui::Text("Souris : (%.2f, %.2f) m", static_cast<double>(mouse.x), static_cast<double>(mouse.y));
     ImGui::Text("Cible  : (%.2f, %.2f) m", static_cast<double>(position.x), static_cast<double>(position.y));
-    if (ImGui::SliderFloat("Zoom (px/m)", &zoom, SceneCamera::kMinZoom, SceneCamera::kMaxZoom,
-                           "%.1f", ImGuiSliderFlags_Logarithmic))
+    if (ImGui::SliderFloat(
+            "Zoom (px/m)", &zoom, SceneCamera::kMinZoom, SceneCamera::kMaxZoom, "%.1f", ImGuiSliderFlags_Logarithmic
+        ))
         m_Camera.SetZoom(zoom);
     if (ImGui::Button("Recentrer"))
         m_Camera.Reset();

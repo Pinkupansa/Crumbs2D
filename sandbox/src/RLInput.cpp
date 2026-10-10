@@ -5,20 +5,20 @@
 
 namespace
 {
-    int ToRaylib(InputMouseButton button)
+int ToRaylib(InputMouseButton button)
+{
+    switch (button)
     {
-        switch (button)
-        {
         case InputMouseButton::Left:
             return MOUSE_BUTTON_LEFT;
         case InputMouseButton::Right:
             return MOUSE_BUTTON_RIGHT;
         case InputMouseButton::Middle:
             return MOUSE_BUTTON_MIDDLE;
-        }
-        return MOUSE_BUTTON_LEFT;
     }
+    return MOUSE_BUTTON_LEFT;
 }
+} // namespace
 
 glm::vec2 RLInput::GetMousePosition()
 {
@@ -32,17 +32,9 @@ glm::vec2 RLInput::GetMouseDelta()
     return {d.x, d.y};
 }
 
-float RLInput::GetMouseWheel()
-{
-    return GetMouseWheelMove();
-}
+float RLInput::GetMouseWheel() { return GetMouseWheelMove(); }
 
-bool RLInput::IsMouseButtonDown(InputMouseButton button)
-{
-    return ::IsMouseButtonDown(ToRaylib(button));
-}
+bool RLInput::IsMouseButtonDown(InputMouseButton button) { return ::IsMouseButtonDown(ToRaylib(button)); }
+bool RLInput::IsMouseButtonPressed(InputMouseButton button) { return ::IsMouseButtonPressed(ToRaylib(button)); }
 
-bool RLInput::IsMouseCapturedByUI()
-{
-    return ImGui::GetIO().WantCaptureMouse;
-}
+bool RLInput::IsMouseCapturedByUI() { return ImGui::GetIO().WantCaptureMouse; }
