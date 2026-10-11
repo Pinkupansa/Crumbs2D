@@ -10,6 +10,8 @@ using namespace Crumbs2D;
 // Tests written with Claude Opus 5.5
 namespace
 {
+
+Crumbs2D::SolverSettings s_Settings = {1.0f / 60.0f};
 // Compare composante par composante : doctest affiche alors les valeurs
 // exactes en cas d'échec (il ne sait pas afficher un glm::vec2).
 void CheckVec2(glm::vec2 actual, glm::vec2 expected)
@@ -190,8 +192,9 @@ TEST_CASE("Un body recyclé ne reprend pas les valeurs de l'ancien")
         CHECK(body.GetAngularVelocity() == 0.0f);
         CHECK(body.GetMass() == 1.0f);
 
-        // Les forces ne sont pas lisibles : sans gravité, un Step ne doit rien bouger.
-        world.Step(1.0f / 60.0f);
+        // Les forces ne sont pas lisibles : sans gravité, un Update ne doit rien bouger.
+
+        world.Step(s_Settings);
         CheckVec2(body.GetVelocity(), {0.0f, 0.0f});
         CHECK(body.GetAngularVelocity() == 0.0f);
     };

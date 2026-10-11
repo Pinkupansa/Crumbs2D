@@ -1,5 +1,5 @@
 #include "World.h"
-
+#include "CrumbsMath.h"
 #include <cassert>
 
 namespace Crumbs2D
@@ -31,23 +31,41 @@ float World::GetMass(const Body& body) const
 
 void World::AddForce(const Body& body, glm::vec2 force) { Field(body, &World::m_Forces) += force; }
 void World::AddTorque(const Body& body, float torque) { Field(body, &World::m_Torques) += torque; }
+void World::AddImpulse(const Body& body, glm::vec2 impulse)
+{ Field(body, &World::m_Velocities) += impulse * Field(body, &World::m_InverseMasses); }
 
-void World::Step(float dt)
+void World::AddAngularImpulse(const Body& body, float impulse)
+{ Field(body, &World::m_AngularVelocities) += impulse * Field(body, &World::m_InverseInertias); }
+
+void World::AddForceAtPoint(const Body& body, glm::vec2 force, glm::vec2 point)
 {
+    glm::vec2 leverArm = point - Field(body, &World::m_Positions);
+    AddTorque(body, Cross(leverArm, force));
+    AddForce(body, force);
+}
+
+void World::AddImpulseAtPoint(const Body& body, glm::vec2 impulse, glm::vec2 point)
+{
+    glm::vec2 leverArm = point - Field(body, &World::m_Positions);
+    AddAngularImpulse(body, Cross(leverArm, impulse));
+    AddImpulse(body, impulse);
+}
+
+void World::Step(const SolverSettings& settings)
+{
+    const float dt = settings.DeltaTime;
     for (uint32_t i = 0; i < m_BodyCount; i++)
     {
         m_Velocities.data[i] +=
-            dt * (m_Forces.data[i] * m_InverseMasses.data[i] + (float)(!m_IsStatic.data[i]) * m_Settings.Gravity);
+            dt * (m_Forces.data[i] * m_InverseMasses.data[i] + (float)(!m_IsStatic.data[i]) * PhysicsSettings.Gravity);
         m_AngularVelocities.data[i] += dt * m_Torques.data[i] * m_InverseInertias.data[i];
-
+        m_Velocities.data[i] /= (1 + m_LinearDrags.data[i] * dt);
+        m_AngularVelocities.data[i] /= (1 + m_AngularDrags.data[i] * dt);
         m_Positions.data[i] += dt * m_Velocities.data[i];
         m_Rotations.data[i] += dt * m_AngularVelocities.data[i];
 
         m_Forces.data[i] = glm::vec2(0.0f, 0.0f);
         m_Torques.data[i] = 0.0f;
-
-        m_Velocities.data[i] /= (1 + m_LinearDrags.data[i] * dt);
-        m_AngularVelocities.data[i] /= (1 + m_AngularDrags.data[i] * dt);
     }
 }
 

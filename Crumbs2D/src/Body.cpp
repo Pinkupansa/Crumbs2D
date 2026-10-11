@@ -42,4 +42,9 @@ void Body::AddForce(glm::vec2 force) const { m_World->AddForce(*this, force); }
 
 void Body::AddTorque(float torque) const { m_World->AddTorque(*this, torque); }
 
+void Body::AddImpulse(glm::vec2 impulse) { m_World->AddImpulse(*this, impulse); }
+void Body::AddAngularImpulse(float impulse) { m_World->AddAngularImpulse(*this, impulse); };
+
+void Body::AddForceAtPoint(glm::vec2 force, glm::vec2 point) { m_World->AddForceAtPoint(*this, force, point); }
+void Body::AddImpulseAtPoint(glm::vec2 impulse, glm::vec2 point) { m_World->AddImpulseAtPoint(*this, impulse, point); }
 } // namespace Crumbs2D

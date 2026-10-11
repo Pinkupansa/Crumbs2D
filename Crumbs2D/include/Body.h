@@ -54,6 +54,12 @@ public:
 
     void AddForce(glm::vec2 force) const;
     void AddTorque(float torque) const;
+
+    void AddImpulse(glm::vec2 impulse);
+    void AddAngularImpulse(float impulse);
+
+    void AddForceAtPoint(glm::vec2 force, glm::vec2 point);
+    void AddImpulseAtPoint(glm::vec2 impulse, glm::vec2 point);
 };
 
 } // namespace Crumbs2D

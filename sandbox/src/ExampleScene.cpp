@@ -7,10 +7,13 @@
 
 #include <cmath>
 
+static Crumbs2D::SolverSettings s_Settings = {1 / 60.0f};
+
 void ExampleScene::OnInit()
 {
     m_BoxBody = m_World.AddBody();
     m_BoxBody.SetPosition({0, 2});
+    m_World.PhysicsSettings.Gravity = {0, -9.81f};
 }
 void ExampleScene::OnUpdate(float dt)
 {
@@ -19,10 +22,18 @@ void ExampleScene::OnUpdate(float dt)
 
     if (RLInput::IsMouseButtonPressed(InputMouseButton::Left))
     {
-        m_BoxBody.SetVelocity((m_BoxBody.GetPosition() - m_Camera.ScreenToWorld(RLInput::GetMousePosition())) * 2.0f);
-        m_BoxBody.SetAngularVelocity(10);
+        glm::vec2 mousePos = m_Camera.ScreenToWorld(RLInput::GetMousePosition());
+        glm::vec2 dir = m_BoxBody.GetPosition() - mousePos;
+        m_BoxBody.AddImpulseAtPoint(glm::vec2{dir.x > 0 ? 1 : -1, dir.y > 0 ? 3 : -3} * 3.0f, mousePos);
     }
-    m_World.Step(dt);
+
+    m_SolverLag += dt;
+
+    while (m_SolverLag > s_Settings.DeltaTime)
+    {
+        m_World.Step(s_Settings);
+        m_SolverLag -= s_Settings.DeltaTime;
+    }
 }
 
 void ExampleScene::OnDraw()

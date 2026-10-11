@@ -6,9 +6,11 @@
 
 namespace Crumbs2D
 {
-struct WorldSettings
-{ glm::vec2 Gravity = {0, -9.81f}; };
+struct PhysicsSettings
+{ glm::vec2 Gravity = {0, 0}; };
 
+struct SolverSettings
+{ float DeltaTime; };
 // Un tableau compact et la valeur donnée à chaque nouvelle case.
 template <typename T> struct Column
 {
@@ -19,7 +21,6 @@ template <typename T> struct Column
 class World
 {
 private:
-    WorldSettings m_Settings;
     uint32_t m_BodyCount = 0;
 
     // Indexés par handle
@@ -64,6 +65,12 @@ private:
     void AddForce(const Body& body, glm::vec2 force);
     void AddTorque(const Body& body, float torque);
 
+    void AddImpulse(const Body& body, glm::vec2 impulse);
+    void AddAngularImpulse(const Body& body, float impulse);
+
+    void AddForceAtPoint(const Body& body, glm::vec2 force, glm::vec2 point);
+    void AddImpulseAtPoint(const Body& body, glm::vec2 impulse, glm::vec2 point);
+
     template <typename F> void ForEachColumn(F&& f)
     {
         f(m_Positions);
@@ -81,7 +88,10 @@ private:
     }
 
 public:
-    void Step(float dt);
+    PhysicsSettings PhysicsSettings;
+
+public:
+    void Step(const SolverSettings& settings);
     Body AddBody();
     void DeleteBody(const Body& body);
 };

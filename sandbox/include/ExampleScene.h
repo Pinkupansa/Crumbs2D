@@ -20,4 +20,5 @@ private:
 
     Crumbs2D::World m_World;
     Crumbs2D::Body m_BoxBody;
+    float m_SolverLag = 0;
 };
