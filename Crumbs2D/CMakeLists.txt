@@ -1,6 +1,6 @@
 # ---------------------------------------------------------------------------
 # Crumbs2D : la bibliothèque de physique
-# Attendu : include/crumbs2d/, src/, vendor/glm/
+# Attendu : include/, src/, vendor/glm/
 # ---------------------------------------------------------------------------
 
 # glm (header-only). Si le projet parent (Oven) fournit déjà glm::glm,
@@ -28,6 +28,10 @@ target_include_directories(crumbs2d
 target_compile_features(crumbs2d PUBLIC cxx_std_20)
 target_link_libraries(crumbs2d PUBLIC glm::glm)
 
+# Macro disponible dans le code de Crumbs2D pour du debug supplémentaire
+# (vérifications coûteuses, compteurs...). Les assert() dépendent déjà de NDEBUG.
+target_compile_definitions(crumbs2d PRIVATE $<$<CONFIG:Debug>:CRUMBS2D_DEBUG>)
+
 if(MSVC)
     target_compile_options(crumbs2d PRIVATE /W4 /permissive-)
     if(CRUMBS2D_WARNINGS_AS_ERRORS)
@@ -37,5 +41,18 @@ else()
     target_compile_options(crumbs2d PRIVATE -Wall -Wextra -Wpedantic -Wshadow -Wconversion)
     if(CRUMBS2D_WARNINGS_AS_ERRORS)
         target_compile_options(crumbs2d PRIVATE -Werror)
+    endif()
+endif()
+
+# Optimisation pour le processeur de la machine : utile pour mesurer le
+# maximum atteignable, mais le binaire ne tournera pas forcément ailleurs.
+if(CRUMBS2D_NATIVE_ARCH AND NOT MSVC)
+    include(CheckCXXCompilerFlag)
+    check_cxx_compiler_flag("-mcpu=native" CRUMBS2D_HAS_MCPU_NATIVE)
+    check_cxx_compiler_flag("-march=native" CRUMBS2D_HAS_MARCH_NATIVE)
+    if(CRUMBS2D_HAS_MCPU_NATIVE)
+        target_compile_options(crumbs2d PRIVATE -mcpu=native)
+    elseif(CRUMBS2D_HAS_MARCH_NATIVE)
+        target_compile_options(crumbs2d PRIVATE -march=native)
     endif()
 endif()

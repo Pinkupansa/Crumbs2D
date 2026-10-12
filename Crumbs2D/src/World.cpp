@@ -59,8 +59,8 @@ void World::Step(const SolverSettings& settings)
         m_Velocities.data[i] +=
             dt * (m_Forces.data[i] * m_InverseMasses.data[i] + (float)(!m_IsStatic.data[i]) * PhysicsSettings.Gravity);
         m_AngularVelocities.data[i] += dt * m_Torques.data[i] * m_InverseInertias.data[i];
-        m_Velocities.data[i] /= (1 + m_LinearDrags.data[i] * dt);
-        m_AngularVelocities.data[i] /= (1 + m_AngularDrags.data[i] * dt);
+        m_Velocities.data[i] *= (1 - m_LinearDrags.data[i] * dt);
+        m_AngularVelocities.data[i] *= (1 - m_AngularDrags.data[i] * dt);
         m_Positions.data[i] += dt * m_Velocities.data[i];
         m_Rotations.data[i] += dt * m_AngularVelocities.data[i];
 

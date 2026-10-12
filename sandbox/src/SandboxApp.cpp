@@ -3,14 +3,11 @@
 #include "RLRenderer.h"
 #include "RLWindow.h"
 
-SandboxApp::SandboxApp(Crumbs2D::Scope<SandboxScene> scene)
-    : m_Scene(std::move(scene))
-{
-}
+SandboxApp::SandboxApp(Crumbs2D::Scope<SandboxScene> scene) : m_Scene(std::move(scene)) {}
 
 void SandboxApp::Run()
 {
-    RLWindow::Init(1280, 720, "Crumbs2D Sandbox", 144);
+    RLWindow::Init(1280, 720, "Crumbs2D Sandbox", 0);
 
     m_Scene->OnInit();
 

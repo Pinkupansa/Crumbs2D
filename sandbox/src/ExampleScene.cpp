@@ -24,7 +24,9 @@ void ExampleScene::OnUpdate(float dt)
     {
         glm::vec2 mousePos = m_Camera.ScreenToWorld(RLInput::GetMousePosition());
         glm::vec2 dir = m_BoxBody.GetPosition() - mousePos;
-        m_BoxBody.AddImpulseAtPoint(glm::vec2{dir.x > 0 ? 1 : -1, dir.y > 0 ? 3 : -3} * 3.0f, mousePos);
+        m_BoxBody.AddImpulseAtPoint(
+            glm::vec2{0, 10} + dir / (float)dir.length() * ((float)rand() / (float)RAND_MAX) * 3.0f, mousePos
+        );
     }
 
     m_SolverLag += dt;
