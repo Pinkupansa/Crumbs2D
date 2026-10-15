@@ -1,115 +1,68 @@
 #include "World.h"
-#include "CrumbsMath.h"
+#include "BodyStorage.h"
+#include "ColliderStorage.h"
+#include "Integrator.h"
 #include <cassert>
 
 namespace Crumbs2D
 {
 
+World::World(const SolverSettings& solverSettings)
+    : m_Bodies(CreateScope<BodyStorage>()), m_Colliders(CreateScope<ColliderStorage>()),
+      m_SolverSettings(solverSettings)
+{ assert(m_SolverSettings.DeltaTime > 0.0f && "DeltaTime must be positive"); }
+
+World::~World() = default;
+World::World(World&&) noexcept = default;
+World& World::operator=(World&&) noexcept = default;
+
 bool World::IsValid(const Body& body) const
+{ return body.m_World == this && m_Bodies->IsValid({body.m_Handle, body.m_Generation}); }
+
+bool World::IsValid(const Collider& collider) const
+{ return collider.m_World == this && m_Colliders->IsValid({collider.m_Handle, collider.m_Generation}); }
+
+void World::RecomputeAABBs()
 {
-    return body.m_World == this && body.m_Handle < m_Generations.size() &&
-           m_Generations[body.m_Handle] == body.m_Generation;
-}
+    ColliderColumns& colliders = m_Colliders->Columns;
+    const BodyStorage& bodies = *m_Bodies;
 
-uint32_t World::GetIndex(const Body& body) const
-{
-    assert(IsValid(body) && "Body invalide : supprimé ou appartenant à un autre World");
-    return m_HandleToIndex[body.m_Handle];
-}
-
-void World::SetMass(const Body& body, float mass)
-{
-    // Une masse nulle ou négative donne une masse inverse nulle : body immobile.
-    Field(body, &World::m_InverseMasses) = mass > 0.0f ? 1.0f / mass : 0.0f;
-}
-
-float World::GetMass(const Body& body) const
-{
-    const float inverseMass = Field(body, &World::m_InverseMasses);
-    return inverseMass > 0.0f ? 1.0f / inverseMass : 0.0f;
-}
-
-void World::AddForce(const Body& body, glm::vec2 force) { Field(body, &World::m_Forces) += force; }
-void World::AddTorque(const Body& body, float torque) { Field(body, &World::m_Torques) += torque; }
-void World::AddImpulse(const Body& body, glm::vec2 impulse)
-{ Field(body, &World::m_Velocities) += impulse * Field(body, &World::m_InverseMasses); }
-
-void World::AddAngularImpulse(const Body& body, float impulse)
-{ Field(body, &World::m_AngularVelocities) += impulse * Field(body, &World::m_InverseInertias); }
-
-void World::AddForceAtPoint(const Body& body, glm::vec2 force, glm::vec2 point)
-{
-    glm::vec2 leverArm = point - Field(body, &World::m_Positions);
-    AddTorque(body, Cross(leverArm, force));
-    AddForce(body, force);
-}
-
-void World::AddImpulseAtPoint(const Body& body, glm::vec2 impulse, glm::vec2 point)
-{
-    glm::vec2 leverArm = point - Field(body, &World::m_Positions);
-    AddAngularImpulse(body, Cross(leverArm, impulse));
-    AddImpulse(body, impulse);
-}
-
-void World::Step(const SolverSettings& settings)
-{
-    const float dt = settings.DeltaTime;
-    for (uint32_t i = 0; i < m_BodyCount; i++)
+    for (uint32_t i = 0; i < m_Colliders->Count(); i++)
     {
-        m_Velocities.data[i] +=
-            dt * (m_Forces.data[i] * m_InverseMasses.data[i] + (float)(!m_IsStatic.data[i]) * PhysicsSettings.Gravity);
-        m_AngularVelocities.data[i] += dt * m_Torques.data[i] * m_InverseInertias.data[i];
-        m_Velocities.data[i] *= (1 - m_LinearDrags.data[i] * dt);
-        m_AngularVelocities.data[i] *= (1 - m_AngularDrags.data[i] * dt);
-        m_Positions.data[i] += dt * m_Velocities.data[i];
-        m_Rotations.data[i] += dt * m_AngularVelocities.data[i];
+        const Id bodyId = colliders.Body.Data[i];
+        const glm::vec2 bodyPosition = bodies.Get(bodyId, &BodyColumns::Position);
+        const float bodyRotation = bodies.Get(bodyId, &BodyColumns::Rotation);
 
-        m_Forces.data[i] = glm::vec2(0.0f, 0.0f);
-        m_Torques.data[i] = 0.0f;
+        const glm::vec2 worldPosition = bodyPosition + Rotate(colliders.LocalPosition.Data[i], bodyRotation);
+        const float worldRotation = bodyRotation + colliders.LocalRotation.Data[i];
+
+        colliders.AABB.Data[i] =
+            ColliderGeometry::RecomputeAABB(colliders.Geometry.Data[i], worldPosition, worldRotation);
     }
 }
-
-Body World::AddBody()
+void World::Step()
 {
-    uint32_t handle;
-    if (!m_FreeHandles.empty())
-    {
-        handle = m_FreeHandles.back();
-        m_FreeHandles.pop_back();
-    }
-    else
-    {
-        handle = static_cast<uint32_t>(m_HandleToIndex.size());
-        m_HandleToIndex.push_back(0);
-        m_Generations.push_back(0);
-    }
+    assert(m_Bodies);
+    const float dt = m_SolverSettings.DeltaTime;
 
-    const uint32_t index = m_BodyCount++;
-    ForEachColumn([](auto& column) { column.data.push_back(column.defaultValue); });
+    Integrator::IntegrateVelocities(*m_Bodies, PhysicsSettings, dt);
+    // (plus tard : broad phase, contacts, résolution des contacts)
+    Integrator::IntegratePositions(*m_Bodies, dt);
 
-    m_HandleToIndex[handle] = index;
-    m_IndexToHandle.data[index] = handle;
+    RecomputeAABBs();
+}
 
-    return Body(handle, m_Generations[handle], this);
+Body World::CreateBody()
+{
+    const auto id = m_Bodies->Add();
+    return Body(id.Handle, id.Generation, this);
 }
 
 void World::DeleteBody(const Body& body)
 {
-    const uint32_t index = GetIndex(body);
-    const uint32_t handle = body.m_Handle;
-    const uint32_t last = m_BodyCount - 1;
-
-    if (index != last)
-    {
-        ForEachColumn([&](auto& column) { column.data[index] = column.data[last]; });
-        m_HandleToIndex[m_IndexToHandle.data[index]] = index;
-    }
-
-    ForEachColumn([](auto& column) { column.data.pop_back(); });
-    m_BodyCount--;
-
-    m_Generations[handle]++;
-    m_FreeHandles.push_back(handle);
+    // Détecte un body d'un autre World ; Remove vérifie la génération (double suppression).
+    assert(body.m_World == this && "Body is not from this world");
+    m_Bodies->Remove({body.m_Handle, body.m_Generation});
 }
 
 } // namespace Crumbs2D

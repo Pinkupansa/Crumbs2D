@@ -1,98 +1,51 @@
 #pragma once
 #include "glm/vec2.hpp"
 #include <cstdint>
-#include <vector>
 #include "Body.h"
-
+#include "Collider.h"
+#include "Core.h"
 namespace Crumbs2D
 {
+struct BodyStorage;
+struct ColliderStorage;
+
 struct PhysicsSettings
 { glm::vec2 Gravity = {0, 0}; };
 
 struct SolverSettings
-{ float DeltaTime; };
-// Un tableau compact et la valeur donnée à chaque nouvelle case.
-template <typename T> struct Column
-{
-    std::vector<T> data;
-    T defaultValue;
-};
+{ float DeltaTime = 1.0f / 60.0f; };
 
 class World
 {
+public:
+    explicit World(const SolverSettings& solverSettings = SolverSettings{});
+    ~World();
+
+    World(World&&) noexcept;
+    World& operator=(World&&) noexcept;
+    World(const World&) = delete;
+    World& operator=(const World&) = delete;
+
 private:
-    uint32_t m_BodyCount = 0;
+    Scope<BodyStorage> m_Bodies;
+    Scope<ColliderStorage> m_Colliders;
 
-    // Indexés par handle
-    std::vector<uint32_t> m_FreeHandles;
-    std::vector<uint32_t> m_HandleToIndex;
-    std::vector<uint32_t> m_Generations;
-
-    // Indexés par position dans les tableaux compacts
-    Column<uint32_t> m_IndexToHandle{{}, 0};
-
-    Column<glm::vec2> m_Velocities{{}, glm::vec2(0.0f)};
-    Column<glm::vec2> m_Positions{{}, glm::vec2(0.0f)};
-    Column<float> m_AngularVelocities{{}, 0.0f};
-    Column<float> m_Rotations{{}, 0.0f};
-    Column<float> m_InverseMasses{{}, 1.0f};
-    Column<float> m_InverseInertias{{}, 1.0f};
-
-    Column<float> m_LinearDrags{{}, 1.0f};
-    Column<float> m_AngularDrags{{}, 1.0f};
-
-    Column<glm::vec2> m_Forces{{}, glm::vec2(0.0f)};
-    Column<float> m_Torques{{}, 0.0f};
-
-    // uint8_t et non bool : std::vector<bool> ne renvoie pas de vraie référence.
-    Column<uint8_t> m_IsStatic{{}, 0};
+    SolverSettings m_SolverSettings;
 
 private:
     friend class Body;
-
+    friend class Collider;
     bool IsValid(const Body& body) const;
-    uint32_t GetIndex(const Body& body) const;
-
-    template <typename T> T& Field(const Body& body, Column<T> World::* column)
-    { return (this->*column).data[GetIndex(body)]; }
-
-    template <typename T> const T& Field(const Body& body, Column<T> World::* column) const
-    { return (this->*column).data[GetIndex(body)]; }
-
-    void SetMass(const Body& body, float mass);
-    float GetMass(const Body& body) const;
-
-    void AddForce(const Body& body, glm::vec2 force);
-    void AddTorque(const Body& body, float torque);
-
-    void AddImpulse(const Body& body, glm::vec2 impulse);
-    void AddAngularImpulse(const Body& body, float impulse);
-
-    void AddForceAtPoint(const Body& body, glm::vec2 force, glm::vec2 point);
-    void AddImpulseAtPoint(const Body& body, glm::vec2 impulse, glm::vec2 point);
-
-    template <typename F> void ForEachColumn(F&& f)
-    {
-        f(m_Positions);
-        f(m_Rotations);
-        f(m_Velocities);
-        f(m_AngularVelocities);
-        f(m_Forces);
-        f(m_Torques);
-        f(m_InverseMasses);
-        f(m_InverseInertias);
-        f(m_IndexToHandle);
-        f(m_IsStatic);
-        f(m_LinearDrags);
-        f(m_AngularDrags);
-    }
+    bool IsValid(const Collider& collider) const;
+    void RecomputeAABBs();
 
 public:
-    PhysicsSettings PhysicsSettings;
+    Crumbs2D::PhysicsSettings PhysicsSettings;
 
 public:
-    void Step(const SolverSettings& settings);
-    Body AddBody();
+    void Step();
+    Body CreateBody();
     void DeleteBody(const Body& body);
+    const SolverSettings& GetSolverSettings() const { return m_SolverSettings; }
 };
 } // namespace Crumbs2D

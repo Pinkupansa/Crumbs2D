@@ -32,8 +32,7 @@ private:
     bool m_DrawBodies = true;
     bool m_UseGravity = false;
 
-    // Pas fixe
-    Crumbs2D::SolverSettings m_SolverSettings{1.0f / 60.0f};
+    // Pas fixe : sa durée est celle des SolverSettings du world.
     float m_Accumulator = 0.0f;
     static constexpr int kMaxStepsPerFrame = 4;
     static constexpr float kHalfArea = 50.0f;
@@ -45,4 +44,7 @@ private:
     float m_WrapMs = 0.0f;
     float m_DrawMs = 0.0f;
     int m_StepsLastFrame = 0;
+    // StressScene.h : deux options d'affichage de plus
+    bool m_DrawColliders = true;
+    bool m_DrawAABBs = false;
 };

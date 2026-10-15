@@ -10,8 +10,6 @@ using namespace Crumbs2D;
 // Tests written with Claude Opus 5.5
 namespace
 {
-
-Crumbs2D::SolverSettings s_Settings = {1.0f / 60.0f};
 // Compare composante par composante : doctest affiche alors les valeurs
 // exactes en cas d'échec (il ne sait pas afficher un glm::vec2).
 void CheckVec2(glm::vec2 actual, glm::vec2 expected)
@@ -24,7 +22,7 @@ void CheckVec2(glm::vec2 actual, glm::vec2 expected)
 TEST_CASE("Un body créé est valide, un Body par défaut ne l'est pas")
 {
     World world;
-    const Body body = world.AddBody();
+    const Body body = world.CreateBody();
     const Body empty;
 
     CHECK(body.IsValid());
@@ -38,7 +36,7 @@ TEST_CASE("Chaque body garde ses propres données")
 
     for (int i = 0; i < 10; ++i)
     {
-        Body body = world.AddBody();
+        Body body = world.CreateBody();
         body.SetPosition({static_cast<float>(i), static_cast<float>(-i)});
         body.SetVelocity({static_cast<float>(i * 10), 0.0f});
         bodies.push_back(body);
@@ -54,9 +52,9 @@ TEST_CASE("Chaque body garde ses propres données")
 TEST_CASE("Supprimer un body au milieu ne modifie pas les autres")
 {
     World world;
-    Body a = world.AddBody();
-    Body b = world.AddBody();
-    Body c = world.AddBody();
+    Body a = world.CreateBody();
+    Body b = world.CreateBody();
+    Body c = world.CreateBody();
 
     a.SetPosition({1.0f, 1.0f});
     b.SetPosition({2.0f, 2.0f});
@@ -78,8 +76,8 @@ TEST_CASE("Supprimer un body au milieu ne modifie pas les autres")
 TEST_CASE("Supprimer le dernier body fonctionne")
 {
     World world;
-    Body a = world.AddBody();
-    Body b = world.AddBody();
+    Body a = world.CreateBody();
+    Body b = world.CreateBody();
 
     a.SetPosition({1.0f, 1.0f});
     world.DeleteBody(b);
@@ -92,11 +90,11 @@ TEST_CASE("Supprimer le dernier body fonctionne")
 TEST_CASE("Un handle recyclé n'est pas confondu avec l'ancien")
 {
     World world;
-    Body oldBody = world.AddBody();
+    Body oldBody = world.CreateBody();
     world.DeleteBody(oldBody);
 
     // Le nouveau body réutilise la case libérée, avec une génération différente.
-    Body newBody = world.AddBody();
+    Body newBody = world.CreateBody();
     newBody.SetPosition({5.0f, 5.0f});
 
     CHECK(newBody.IsValid());
@@ -108,8 +106,8 @@ TEST_CASE("Un body d'un autre world n'est pas valide dans celui-ci")
 {
     World worldA;
     World worldB;
-    const Body bodyA = worldA.AddBody();
-    worldB.AddBody();
+    const Body bodyA = worldA.CreateBody();
+    worldB.CreateBody();
 
     // bodyA a le même handle que le body de worldB, mais pas le même world.
     CHECK(bodyA.IsValid());
@@ -142,7 +140,7 @@ TEST_CASE("Séquence aléatoire de créations et de suppressions")
 
         if (create)
         {
-            Reference ref{world.AddBody(), {value(rng), value(rng)}, {value(rng), value(rng)}};
+            Reference ref{world.CreateBody(), {value(rng), value(rng)}, {value(rng), value(rng)}};
             ref.body.SetPosition(ref.position);
             ref.body.SetVelocity(ref.velocity);
             alive.push_back(ref);
@@ -192,9 +190,8 @@ TEST_CASE("Un body recyclé ne reprend pas les valeurs de l'ancien")
         CHECK(body.GetAngularVelocity() == 0.0f);
         CHECK(body.GetMass() == 1.0f);
 
-        // Les forces ne sont pas lisibles : sans gravité, un Update ne doit rien bouger.
-
-        world.Step(s_Settings);
+        // Les forces ne sont pas lisibles : sans gravité, un Step ne doit rien bouger.
+        world.Step();
         CheckVec2(body.GetVelocity(), {0.0f, 0.0f});
         CHECK(body.GetAngularVelocity() == 0.0f);
     };
@@ -202,19 +199,19 @@ TEST_CASE("Un body recyclé ne reprend pas les valeurs de l'ancien")
     SUBCASE("Le body supprimé était le dernier")
     {
         World world;
-        Body old = world.AddBody();
+        Body old = world.CreateBody();
         fill(old);
         world.DeleteBody(old);
 
-        checkDefaults(world, world.AddBody());
+        checkDefaults(world, world.CreateBody());
     }
 
     SUBCASE("Le body supprimé était au milieu")
     {
         World world;
-        Body first = world.AddBody();
-        Body middle = world.AddBody();
-        Body last = world.AddBody();
+        Body first = world.CreateBody();
+        Body middle = world.CreateBody();
+        Body last = world.CreateBody();
         fill(first);
         fill(middle);
         fill(last);
@@ -222,6 +219,6 @@ TEST_CASE("Un body recyclé ne reprend pas les valeurs de l'ancien")
         world.DeleteBody(middle);
         world.DeleteBody(last); // libère aussi la case de fin, avec ses anciennes valeurs
 
-        checkDefaults(world, world.AddBody());
+        checkDefaults(world, world.CreateBody());
     }
 }

@@ -31,7 +31,7 @@ void StressScene::OnInit()
 
 void StressScene::CreateBodies()
 {
-    m_World = Crumbs2D::World{};
+    m_World = Crumbs2D::World{Crumbs2D::SolverSettings{1.0f / 60.0f}};
     m_World.PhysicsSettings.Gravity = m_UseGravity ? kDefaultGravity : glm::vec2(0.0f);
     m_Bodies.clear();
     m_Bodies.reserve(static_cast<size_t>(m_BodyCount));
@@ -44,7 +44,8 @@ void StressScene::CreateBodies()
 
     for (int i = 0; i < m_BodyCount; ++i)
     {
-        Crumbs2D::Body body = m_World.AddBody();
+        Crumbs2D::Body body = m_World.CreateBody();
+        body.AddCollider(Crumbs2D::ColliderGeometry::MakeBox({{0.5f, 0.5f}}));
         body.SetPosition({position(rng), position(rng)});
         body.SetVelocity({speed(rng), speed(rng)});
         body.SetAngularVelocity(spin(rng));
@@ -70,17 +71,18 @@ void StressScene::OnUpdate(float dt)
     float stepMs = 0.0f;
     float wrapMs = 0.0f;
 
-    while (m_Accumulator >= m_SolverSettings.DeltaTime && steps < kMaxStepsPerFrame)
+    const float stepDuration = m_World.GetSolverSettings().DeltaTime;
+    while (m_Accumulator >= stepDuration && steps < kMaxStepsPerFrame)
     {
         Clock::time_point start = Clock::now();
-        m_World.Step(m_SolverSettings);
+        m_World.Step();
         stepMs += ElapsedMs(start);
 
         start = Clock::now();
         WrapBodies();
         wrapMs += ElapsedMs(start);
 
-        m_Accumulator -= m_SolverSettings.DeltaTime;
+        m_Accumulator -= stepDuration;
         ++steps;
     }
 
@@ -136,16 +138,43 @@ void StressScene::WrapBodies()
 
 void StressScene::OnDraw()
 {
-    if (!m_DrawBodies)
-        return;
-
     const Clock::time_point start = Clock::now();
 
-    const DrawColor color = {90, 170, 255, 255};
-    for (const Crumbs2D::Body& body : m_Bodies)
-        RLRenderer::DrawBox(body.GetPosition(), {kHalfBox, kHalfBox}, body.GetRotation(), color);
+    const DrawColor colliderColor = {90, 170, 255, 255};
+    const DrawColor aabbColor = {255, 200, 60, 255};
 
-    // Ne mesure que l'envoi des commandes : raylib dessine réellement en fin d'image.
+    for (const Crumbs2D::Body& body : m_Bodies)
+    {
+        const glm::vec2 bodyPosition = body.GetPosition();
+        const float bodyRotation = body.GetRotation();
+
+        for (const Crumbs2D::Collider& collider : body.GetColliders())
+        {
+            if (m_DrawColliders)
+            {
+                const glm::vec2 position = bodyPosition + Crumbs2D::Rotate(collider.GetLocalPosition(), bodyRotation);
+                const float rotation = bodyRotation + collider.GetLocalRotation();
+                const Crumbs2D::ColliderGeometry& geometry = collider.GetGeometry();
+
+                switch (geometry.GetType())
+                {
+                    case Crumbs2D::ShapeType::Circle:
+                        RLRenderer::DrawCircle(position, geometry.AsCircle().Radius, colliderColor);
+                        break;
+                    case Crumbs2D::ShapeType::Box:
+                        RLRenderer::DrawBox(position, geometry.AsBox().HalfExtents, rotation, colliderColor);
+                        break;
+                }
+            }
+
+            if (m_DrawAABBs)
+            {
+                const Crumbs2D::AABB aabb = collider.GetAABB();
+                RLRenderer::DrawBox((aabb.min + aabb.max) * 0.5f, (aabb.min - aabb.max) * 0.5f, 0.0f, aabbColor);
+            }
+        }
+    }
+
     Smooth(m_DrawMs, ElapsedMs(start));
 }
 
@@ -170,11 +199,14 @@ void StressScene::OnImGuiRender()
     ImGui::SameLine();
     if (ImGui::Button("Pas a pas") && m_Paused)
     {
-        m_World.Step(m_SolverSettings);
+        m_World.Step();
         WrapBodies();
     }
 
-    ImGui::Checkbox("Dessiner les boites", &m_DrawBodies);
+    // OnImGuiRender : remplace la case "Dessiner les boites"
+    ImGui::Checkbox("Colliders", &m_DrawColliders);
+    ImGui::SameLine();
+    ImGui::Checkbox("AABB", &m_DrawAABBs);
 
     if (ImGui::Checkbox("Gravite", &m_UseGravity))
         m_World.PhysicsSettings.Gravity = m_UseGravity ? kDefaultGravity : glm::vec2(0.0f);

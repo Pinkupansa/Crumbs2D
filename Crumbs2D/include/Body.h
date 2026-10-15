@@ -2,14 +2,14 @@
 
 #include <cstdint>
 #include <glm/vec2.hpp>
-
+#include "Collider.h"
 namespace Crumbs2D
 {
 class World;
+class ColliderGeometry;
+struct BodyColumns;
+template <typename T> struct Column;
 
-// Handle léger vers un body stocké dans un World.
-// Copiable librement : toutes les copies désignent le même body.
-// La génération permet de détecter l'utilisation d'un body supprimé.
 class Body
 {
 private:
@@ -19,10 +19,14 @@ private:
 
 private:
     friend class World;
+    friend class Collider;
     Body(uint32_t handle, uint32_t generation, World* world)
         : m_World(world), m_Handle(handle), m_Generation(generation)
     {
     }
+
+    template <typename T> T& Value(Column<T> BodyColumns::* column) const;
+    void RecalculateMassData() const;
 
 public:
     Body() = default;
@@ -43,23 +47,54 @@ public:
     void SetMass(float mass) const;
     float GetMass() const;
 
-    void SetLinearDrag(float linearDrag) const;
-    float GetLinearDrag() const;
-
-    void SetAngularDrag(float angularDrag) const;
-    float GetAngularDrag() const;
-
     void SetIsStatic(bool isStatic) const;
     bool IsStatic() const;
 
     void AddForce(glm::vec2 force) const;
     void AddTorque(float torque) const;
 
-    void AddImpulse(glm::vec2 impulse);
-    void AddAngularImpulse(float impulse);
+    void AddImpulse(glm::vec2 impulse) const;
+    void AddAngularImpulse(float impulse) const;
 
-    void AddForceAtPoint(glm::vec2 force, glm::vec2 point);
-    void AddImpulseAtPoint(glm::vec2 impulse, glm::vec2 point);
+    void AddForceAtPoint(glm::vec2 force, glm::vec2 point) const;
+    void AddImpulseAtPoint(glm::vec2 impulse, glm::vec2 point) const;
+
+    Collider AddCollider(
+        const ColliderGeometry& geometry, glm::vec2 localPosition = {0.0f, 0.0f}, float localRotation = 0.0f
+    ) const;
+    void DeleteCollider(const Collider& collider) const;
+    Collider GetCollider(uint32_t colliderIndex) const;
+
+    uint32_t GetColliderCount() const;
+
+    class ColliderIterator
+    {
+    public:
+        Collider operator*() const { return Collider(m_Handle, m_Generation, m_World); }
+        ColliderIterator& operator++(); // défini dans Body.cpp : lit le stockage interne
+        bool operator==(const ColliderIterator& other) const { return m_Handle == other.m_Handle; }
+
+    private:
+        friend class Body;
+        ColliderIterator(World* world, uint32_t handle, uint32_t generation)
+            : m_World(world), m_Handle(handle), m_Generation(generation)
+        {
+        }
+
+        World* m_World;
+        uint32_t m_Handle;
+        uint32_t m_Generation;
+    };
+
+    // Plage parcourable avec une boucle for : for (Collider c : body.GetColliders())
+    struct ColliderRange
+    {
+        ColliderIterator First;
+        ColliderIterator begin() const { return First; }
+        ColliderIterator end() const { return ColliderIterator(First.m_World, UINT32_MAX, 0); }
+    };
+
+    ColliderRange GetColliders() const;
 };
 
 } // namespace Crumbs2D
