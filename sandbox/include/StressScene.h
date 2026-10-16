@@ -6,9 +6,9 @@
 
 #include <vector>
 
-// Scène de référence pour les performances : N boîtes sans contacts.
-// Les boîtes sortant de la zone réapparaissent de l'autre côté,
-// pour garder une charge constante dans le temps.
+// Scène de référence pour les performances.
+// Affiche le détail du temps passé dans chaque étape du Step (via World::GetProfile),
+// ainsi que le coût de la scène elle-même (wrap, dessin).
 class StressScene : public SandboxScene
 {
 public:
@@ -21,6 +21,7 @@ private:
     void CreateBodies();
     void WrapBodies();
     void UpdateCameraNavigation();
+    void AccumulateProfile();
 
     SceneCamera m_Camera;
     Crumbs2D::World m_World;
@@ -28,23 +29,22 @@ private:
 
     // Réglages
     int m_BodyCount = 10000;
+    float m_HalfArea = 50.0f;
     bool m_Paused = false;
-    bool m_DrawBodies = true;
+    bool m_DrawColliders = true;
+    bool m_DrawAABBs = false;
     bool m_UseGravity = false;
 
     // Pas fixe : sa durée est celle des SolverSettings du world.
     float m_Accumulator = 0.0f;
     static constexpr int kMaxStepsPerFrame = 4;
-    static constexpr float kHalfArea = 50.0f;
     static constexpr float kHalfBox = 0.3f;
 
-    // Mesures, lissées dans le temps (en millisecondes)
+    // Mesures lissées, en millisecondes (temps moyen d'UN pas pour le profil du world)
     float m_FrameMs = 0.0f;
-    float m_StepMs = 0.0f;
+    Crumbs2D::StepProfile m_Profile;
     float m_WrapMs = 0.0f;
     float m_DrawMs = 0.0f;
+    uint32_t m_PairCount = 0;
     int m_StepsLastFrame = 0;
-    // StressScene.h : deux options d'affichage de plus
-    bool m_DrawColliders = true;
-    bool m_DrawAABBs = false;
 };

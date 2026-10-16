@@ -30,7 +30,17 @@ void Collider::SetLocalPosition(glm::vec2 position) const
     RecomputeAABB();
 }
 
-glm::vec2 Collider::GetGlobalPosition() const { return GetBody().GetPosition() + GetLocalPosition(); }
+// Collider.cpp
+glm::vec2 Collider::GetGlobalPosition() const
+{ return GetBody().GetPosition() + Rotate(GetLocalPosition(), GetBody().GetRotation()); }
+
+float Collider::GetFrictionCoefficient() const { return Value(&ColliderColumns::FrictionCoefficient); }
+
+void Collider::RecomputeAABB() const
+{
+    Value(&ColliderColumns::AABB) =
+        ColliderGeometry::RecomputeAABB(GetGeometry(), GetGlobalPosition(), GetGlobalRotation());
+}
 float Collider::GetGlobalRotation() const { return GetBody().GetRotation() + GetLocalRotation(); }
 
 float Collider::GetLocalRotation() const { return Value(&ColliderColumns::LocalRotation); }
@@ -41,23 +51,11 @@ void Collider::SetLocalRotation(float rotation) const
     RecomputeAABB();
 }
 
-float Collider::GetFrictionCoefficient() const { return 0.0f; }
-
 void Collider::SetFrictionCoefficient(float frictionCoefficient) const
 { Value(&ColliderColumns::FrictionCoefficient) = frictionCoefficient; }
 
 const ColliderGeometry& Collider::GetGeometry() const { return Value(&ColliderColumns::Geometry); }
 
 const AABB Collider::GetAABB() const { return Value(&ColliderColumns::AABB); }
-
-void Collider::RecomputeAABB() const
-{
-
-    Value(&ColliderColumns::AABB) = ColliderGeometry::RecomputeAABB(
-        GetGeometry(),
-        Rotate(GetLocalPosition(), GetLocalRotation()) + GetBody().GetPosition(),
-        GetLocalRotation() + GetBody().GetRotation()
-    );
-}
 
 } // namespace Crumbs2D

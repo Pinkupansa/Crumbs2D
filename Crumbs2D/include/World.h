@@ -4,16 +4,27 @@
 #include "Body.h"
 #include "Collider.h"
 #include "Core.h"
+#include <vector>
 namespace Crumbs2D
 {
 struct BodyStorage;
 struct ColliderStorage;
-
+class BroadPhase;
 struct PhysicsSettings
 { glm::vec2 Gravity = {0, 0}; };
 
 struct SolverSettings
 { float DeltaTime = 1.0f / 60.0f; };
+
+struct StepProfile
+{
+    float TotalMs = 0.0f;
+    float IntegrateVelocitiesMs = 0.0f;
+    float IntegratePositionsMs = 0.0f;
+    float AABBMs = 0.0f;
+    float BroadPhaseMs = 0.0f;
+    uint32_t PairCount = 0;
+};
 
 class World
 {
@@ -29,12 +40,16 @@ public:
 private:
     Scope<BodyStorage> m_Bodies;
     Scope<ColliderStorage> m_Colliders;
+    Scope<BroadPhase> m_BroadPhase;
 
     SolverSettings m_SolverSettings;
+
+    StepProfile m_Profile;
 
 private:
     friend class Body;
     friend class Collider;
+    friend class BroadPhase;
     bool IsValid(const Body& body) const;
     bool IsValid(const Collider& collider) const;
     void RecomputeAABBs();
@@ -47,5 +62,7 @@ public:
     Body CreateBody();
     void DeleteBody(const Body& body);
     const SolverSettings& GetSolverSettings() const { return m_SolverSettings; }
+    std::vector<std::pair<Collider, Collider>> GetCandidatePairs();
+    const StepProfile& GetProfile() const { return m_Profile; }
 };
 } // namespace Crumbs2D

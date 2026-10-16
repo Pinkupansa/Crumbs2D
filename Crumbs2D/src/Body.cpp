@@ -51,7 +51,7 @@ void Body::RecalculateMassData() const
 
     Value(&BodyColumns::MassCenterLocal) = massCenter;
     Value(&BodyColumns::MassCenter) = Value(&BodyColumns::Position) + Rotate(massCenter, Value(&BodyColumns::Rotation));
-    Value(&BodyColumns::InverseInertia) = 1.0f / totalInertia;
+    Value(&BodyColumns::InverseInertia) = (!IsStatic() && totalInertia > 0.0f) ? 1.0f / totalInertia : 0.0f;
 }
 
 bool Body::IsValid() const { return m_World != nullptr && m_World->IsValid(*this); }

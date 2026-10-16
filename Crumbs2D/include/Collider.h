@@ -48,6 +48,7 @@ public:
     const ColliderGeometry& GetGeometry() const;
 
     const AABB GetAABB() const;
+    bool operator==(const Collider&) const = default;
 };
 
 } // namespace Crumbs2D

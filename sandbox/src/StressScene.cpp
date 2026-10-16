@@ -16,15 +16,24 @@ using Clock = std::chrono::steady_clock;
 float ElapsedMs(Clock::time_point start)
 { return std::chrono::duration<float, std::milli>(Clock::now() - start).count(); }
 
-// Moyenne glissante : les valeurs affichées restent lisibles malgré le bruit.
+// Moyenne glissante : les valeurs restent lisibles malgré le bruit.
 void Smooth(float& value, float sample) { value += 0.05f * (sample - value); }
 
 constexpr glm::vec2 kDefaultGravity = {0.0f, -9.81f};
+
+const DrawColor kColliderColor = {90, 170, 255, 255};
+const DrawColor kAabbColor = {255, 200, 60, 255};
+
+void Row(const char* label, float ms, float stepMs)
+{
+    const double share = stepMs > 0.0f ? 100.0 * static_cast<double>(ms / stepMs) : 0.0;
+    ImGui::Text("%-14s %8.3f ms  %5.1f %%", label, static_cast<double>(ms), share);
+}
 } // namespace
 
 void StressScene::OnInit()
 {
-    // Dézoomé pour voir toute la zone de 100 m de côté.
+    // Dézoomé pour voir toute la zone.
     m_Camera.SetZoom(6.0f);
     CreateBodies();
 }
@@ -38,21 +47,22 @@ void StressScene::CreateBodies()
 
     // Graine fixe : la scène est identique à chaque reset, donc comparable.
     std::mt19937 rng(42);
-    std::uniform_real_distribution<float> position(-kHalfArea, kHalfArea);
+    std::uniform_real_distribution<float> position(-m_HalfArea, m_HalfArea);
     std::uniform_real_distribution<float> speed(-3.0f, 3.0f);
     std::uniform_real_distribution<float> spin(-2.0f, 2.0f);
 
     for (int i = 0; i < m_BodyCount; ++i)
     {
         Crumbs2D::Body body = m_World.CreateBody();
-        body.AddCollider(Crumbs2D::ColliderGeometry::MakeBox({{0.5f, 0.5f}}));
         body.SetPosition({position(rng), position(rng)});
         body.SetVelocity({speed(rng), speed(rng)});
         body.SetAngularVelocity(spin(rng));
+        body.AddCollider(Crumbs2D::ColliderGeometry::MakeBox({{kHalfBox, kHalfBox}}), {0.0f, 0.0f}, 0.0f);
         m_Bodies.push_back(body);
     }
 
     m_Accumulator = 0.0f;
+    m_Profile = {};
 }
 
 void StressScene::OnUpdate(float dt)
@@ -66,19 +76,17 @@ void StressScene::OnUpdate(float dt)
         return;
 
     // Boucle à pas fixe, avec limite pour éviter la spirale de la mort.
-    m_Accumulator += dt;
-    int steps = 0;
-    float stepMs = 0.0f;
-    float wrapMs = 0.0f;
-
     const float stepDuration = m_World.GetSolverSettings().DeltaTime;
+    m_Accumulator += dt;
+
+    int steps = 0;
+    float wrapMs = 0.0f;
     while (m_Accumulator >= stepDuration && steps < kMaxStepsPerFrame)
     {
-        Clock::time_point start = Clock::now();
         m_World.Step();
-        stepMs += ElapsedMs(start);
+        AccumulateProfile();
 
-        start = Clock::now();
+        const Clock::time_point start = Clock::now();
         WrapBodies();
         wrapMs += ElapsedMs(start);
 
@@ -92,40 +100,47 @@ void StressScene::OnUpdate(float dt)
 
     m_StepsLastFrame = steps;
     if (steps > 0)
-    {
-        // Temps moyen d'UN pas, pour être indépendant du nombre de pas par image.
-        Smooth(m_StepMs, stepMs / static_cast<float>(steps));
         Smooth(m_WrapMs, wrapMs / static_cast<float>(steps));
-    }
+}
+
+void StressScene::AccumulateProfile()
+{
+    const Crumbs2D::StepProfile& p = m_World.GetProfile();
+    Smooth(m_Profile.TotalMs, p.TotalMs);
+    Smooth(m_Profile.IntegrateVelocitiesMs, p.IntegrateVelocitiesMs);
+    Smooth(m_Profile.IntegratePositionsMs, p.IntegratePositionsMs);
+    Smooth(m_Profile.AABBMs, p.AABBMs);
+    Smooth(m_Profile.BroadPhaseMs, p.BroadPhaseMs);
+    m_PairCount = p.PairCount;
 }
 
 void StressScene::WrapBodies()
 {
     // Coût séparé du Step : passe par l'API publique, comme le ferait un jeu.
-    constexpr float size = 2.0f * kHalfArea;
+    const float size = 2.0f * m_HalfArea;
 
     for (const Crumbs2D::Body& body : m_Bodies)
     {
         glm::vec2 p = body.GetPosition();
         bool moved = false;
 
-        if (p.x < -kHalfArea)
+        if (p.x < -m_HalfArea)
         {
             p.x += size;
             moved = true;
         }
-        else if (p.x > kHalfArea)
+        else if (p.x > m_HalfArea)
         {
             p.x -= size;
             moved = true;
         }
 
-        if (p.y < -kHalfArea)
+        if (p.y < -m_HalfArea)
         {
             p.y += size;
             moved = true;
         }
-        else if (p.y > kHalfArea)
+        else if (p.y > m_HalfArea)
         {
             p.y -= size;
             moved = true;
@@ -138,31 +153,29 @@ void StressScene::WrapBodies()
 
 void StressScene::OnDraw()
 {
-    const Clock::time_point start = Clock::now();
+    if (!m_DrawColliders && !m_DrawAABBs)
+        return;
 
-    const DrawColor colliderColor = {90, 170, 255, 255};
-    const DrawColor aabbColor = {255, 200, 60, 255};
+    const Clock::time_point start = Clock::now();
 
     for (const Crumbs2D::Body& body : m_Bodies)
     {
-        const glm::vec2 bodyPosition = body.GetPosition();
-        const float bodyRotation = body.GetRotation();
-
         for (const Crumbs2D::Collider& collider : body.GetColliders())
         {
             if (m_DrawColliders)
             {
-                const glm::vec2 position = bodyPosition + Crumbs2D::Rotate(collider.GetLocalPosition(), bodyRotation);
-                const float rotation = bodyRotation + collider.GetLocalRotation();
                 const Crumbs2D::ColliderGeometry& geometry = collider.GetGeometry();
+                const glm::vec2 position = collider.GetGlobalPosition();
 
                 switch (geometry.GetType())
                 {
                     case Crumbs2D::ShapeType::Circle:
-                        RLRenderer::DrawCircle(position, geometry.AsCircle().Radius, colliderColor);
+                        RLRenderer::DrawCircle(position, geometry.AsCircle().Radius, kColliderColor);
                         break;
                     case Crumbs2D::ShapeType::Box:
-                        RLRenderer::DrawBox(position, geometry.AsBox().HalfExtents, rotation, colliderColor);
+                        RLRenderer::DrawBox(
+                            position, geometry.AsBox().HalfExtents, collider.GetGlobalRotation(), kColliderColor
+                        );
                         break;
                 }
             }
@@ -170,11 +183,12 @@ void StressScene::OnDraw()
             if (m_DrawAABBs)
             {
                 const Crumbs2D::AABB aabb = collider.GetAABB();
-                RLRenderer::DrawBox((aabb.min + aabb.max) * 0.5f, (aabb.min - aabb.max) * 0.5f, 0.0f, aabbColor);
+                RLRenderer::DrawBox((aabb.min + aabb.max) * 0.5f, (aabb.max - aabb.min) * 0.5f, 0.0f, kAabbColor);
             }
         }
     }
 
+    // Ne mesure que l'envoi des commandes : raylib dessine réellement en fin d'image.
     Smooth(m_DrawMs, ElapsedMs(start));
 }
 
@@ -182,17 +196,31 @@ void StressScene::OnImGuiRender()
 {
     ImGui::Begin("Stress test");
 
-    ImGui::Text("Bodies : %zu", m_Bodies.size());
+    const double n = static_cast<double>(m_Bodies.size());
+    ImGui::Text("Bodies           : %zu", m_Bodies.size());
+    ImGui::Text("Tests d'AABB/pas : %.0f  (n(n-1)/2)", n * (n - 1.0) * 0.5);
+    ImGui::Text("Paires trouvees  : %u", m_PairCount);
+    ImGui::Separator();
+
     ImGui::Text(
-        "FPS    : %.0f (%.2f ms)",
+        "Image : %.2f ms (%.0f FPS), %d pas",
+        static_cast<double>(m_FrameMs),
         m_FrameMs > 0.0f ? 1000.0 / static_cast<double>(m_FrameMs) : 0.0,
-        static_cast<double>(m_FrameMs)
+        m_StepsLastFrame
     );
     ImGui::Separator();
-    ImGui::Text("Step   : %.3f ms", static_cast<double>(m_StepMs));
-    ImGui::Text("Wrap   : %.3f ms", static_cast<double>(m_WrapMs));
-    ImGui::Text("Draw   : %.3f ms", static_cast<double>(m_DrawMs));
-    ImGui::Text("Pas cette image : %d", m_StepsLastFrame);
+
+    ImGui::Text("Un pas de simulation :");
+    Row("Step (total)", m_Profile.TotalMs, m_Profile.TotalMs);
+    Row("  Vitesses", m_Profile.IntegrateVelocitiesMs, m_Profile.TotalMs);
+    Row("  Positions", m_Profile.IntegratePositionsMs, m_Profile.TotalMs);
+    Row("  AABB", m_Profile.AABBMs, m_Profile.TotalMs);
+    Row("  Broad phase", m_Profile.BroadPhaseMs, m_Profile.TotalMs);
+    ImGui::Separator();
+
+    ImGui::Text("Scene :");
+    ImGui::Text("%-14s %8.3f ms", "Wrap", static_cast<double>(m_WrapMs));
+    ImGui::Text("%-14s %8.3f ms", "Dessin", static_cast<double>(m_DrawMs));
     ImGui::Separator();
 
     ImGui::Checkbox("Pause", &m_Paused);
@@ -200,10 +228,10 @@ void StressScene::OnImGuiRender()
     if (ImGui::Button("Pas a pas") && m_Paused)
     {
         m_World.Step();
+        AccumulateProfile();
         WrapBodies();
     }
 
-    // OnImGuiRender : remplace la case "Dessiner les boites"
     ImGui::Checkbox("Colliders", &m_DrawColliders);
     ImGui::SameLine();
     ImGui::Checkbox("AABB", &m_DrawAABBs);
@@ -214,6 +242,7 @@ void StressScene::OnImGuiRender()
     ImGui::InputInt("Nombre", &m_BodyCount, 1000, 10000);
     if (m_BodyCount < 1)
         m_BodyCount = 1;
+    ImGui::SliderFloat("Demi-zone (m)", &m_HalfArea, 5.0f, 200.0f, "%.0f");
     if (ImGui::Button("Reset"))
         CreateBodies();
 

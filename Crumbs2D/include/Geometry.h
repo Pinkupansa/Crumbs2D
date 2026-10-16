@@ -3,17 +3,11 @@
 #include <glm/vec2.hpp>
 #include <cassert>
 #include "CrumbsMath.h"
-#include "Collider.h"
-
+#include "AABB.h"
 namespace Crumbs2D
 {
 enum class ShapeType : uint8_t { Circle, Box };
-// Axis-aligned bounding box
-struct AABB
-{
-    glm::vec2 min;
-    glm::vec2 max;
-};
+
 struct CircleData
 { float Radius = 1.0f; };
 

@@ -1,6 +1,7 @@
 #include "SandboxApp.h"
 #include "SandboxScene.h"
 #include "ExampleScene.h"
+#include "BroadPhaseScene.h"
 #include "StressScene.h"
 #include "Crumbs2D.h"
 

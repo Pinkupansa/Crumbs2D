@@ -92,6 +92,12 @@ public:
         assert(index < (Columns.*column).Data.size() && "Desynchronized column");
         return (Columns.*column).Data[index];
     }
+    Id IdAt(uint32_t index) const
+    {
+        assert(index < m_Count && "Position hors limites");
+        const uint32_t handle = m_IndexToHandle[index];
+        return {handle, m_Generations[handle]};
+    }
 
 private:
     uint32_t GetIndex(Id id) const
