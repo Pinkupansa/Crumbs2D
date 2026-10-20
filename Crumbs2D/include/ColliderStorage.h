@@ -22,7 +22,8 @@ struct ColliderColumns
     Column<ColliderGeometry> Geometry{{}, ColliderGeometry::MakeBox({})};
     Column<AABB> AABB{{}, {{0.0f, 0.0f}, {1.0f, 1.0f}}};
     Column<float> FrictionCoefficient{{}, 0.6f};
-    // ColliderColumns
+    Column<uint32_t> Proxy{{}, UINT32_MAX};
+
     template <typename F> void ForEachColumn(F&& f)
     {
         f(Body);
@@ -33,6 +34,7 @@ struct ColliderColumns
         f(Geometry);
         f(AABB);
         f(FrictionCoefficient);
+        f(Proxy);
     }
 };
 

@@ -4,14 +4,14 @@
 #include "SceneCamera.h"
 #include "World.h"
 
+#include <cstdint>
 #include <vector>
 
-// Scène de validation de la broad phase :
-//  - des cercles et des boîtes qui dérivent, un body déplaçable à la souris (clic gauche) ;
-//  - les AABB en paire sont rouges, les autres grises, et chaque paire est reliée par un segment ;
-//  - un recalcul par force brute, avec les mêmes filtres, doit donner le même nombre de paires.
-// Cas pièges inclus : un body à deux colliders qui se chevauchent (aucune paire attendue entre eux)
-// et deux bodies statiques qui se chevauchent (aucune paire attendue non plus).
+// Scène de validation de la broad phase et de son arbre dynamique.
+//  - Paires : comparées à un recomptage par force brute, avec diagnostic des filtres.
+//  - Arbre : nœuds internes colorés par hauteur, AABB agrandies des feuilles, statistiques,
+//    et appel à Validate() à chaque image.
+// Clic gauche : déplacer la grande boîte. Clic droit : déplacer la caméra.
 class BroadPhaseScene : public SandboxScene
 {
 public:
@@ -26,7 +26,9 @@ private:
     void UpdateCameraNavigation();
     void UpdateDrag();
     void CountBruteForcePairs();
-    void DrawDiagnostics();
+    void CollectTreeStats();
+    void DrawPairDiagnostics();
+    void DrawTreeDiagnostics();
 
     SceneCamera m_Camera;
     Crumbs2D::World m_World;
@@ -38,16 +40,33 @@ private:
     // Recomptage par force brute, détaillé pour diagnostiquer un filtre manquant.
     struct BruteForceCounts
     {
-        size_t Overlapping = 0; // toutes les paires d'AABB qui se chevauchent
-        size_t SameBody = 0;    // dont : deux colliders du même body
-        size_t BothStatic = 0;  // dont : deux bodies statiques
-        size_t Expected = 0;    // ce que la broad phase doit renvoyer
+        size_t Overlapping = 0;
+        size_t SameBody = 0;
+        size_t BothStatic = 0;
+        size_t Expected = 0;
     };
     BruteForceCounts m_BruteForce;
 
+    // Statistiques de l'arbre, calculées via ForEachBroadPhaseNode.
+    struct TreeStats
+    {
+        uint32_t Height = 0;
+        uint32_t NodeCount = 0;
+        uint32_t LeafCount = 0;
+        float TotalCost = 0.0f;
+        bool IsValid = true;
+    };
+    TreeStats m_Tree;
+
+    // Réglages
     int m_BodyCount = 40;
     bool m_Paused = false;
-    bool m_DrawPairLinks = true;
+    bool m_DrawColliders = true;
+    bool m_DrawExactAABBs = false;
+    bool m_DrawFatAABBs = true;
+    bool m_DrawTreeNodes = true;
+    bool m_DrawPairLinks = false;
+    int m_MinDrawnHeight = 1;
     float m_Accumulator = 0.0f;
 
     static constexpr float kHalfArea = 12.0f;

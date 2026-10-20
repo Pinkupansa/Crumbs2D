@@ -5,6 +5,7 @@
 #include "Collider.h"
 #include "Core.h"
 #include <vector>
+#include <functional>
 namespace Crumbs2D
 {
 struct BodyStorage;
@@ -23,6 +24,7 @@ struct StepProfile
     float IntegratePositionsMs = 0.0f;
     float AABBMs = 0.0f;
     float BroadPhaseMs = 0.0f;
+    float TreeUpdateMs = 0.0f;
     uint32_t PairCount = 0;
 };
 
@@ -64,5 +66,7 @@ public:
     const SolverSettings& GetSolverSettings() const { return m_SolverSettings; }
     std::vector<std::pair<Collider, Collider>> GetCandidatePairs();
     const StepProfile& GetProfile() const { return m_Profile; }
+    void ForEachBroadPhaseNode(const std::function<void(const AABB&, uint16_t height, bool isLeaf)>& f) const;
+    bool ValidateBroadPhase() const;
 };
 } // namespace Crumbs2D

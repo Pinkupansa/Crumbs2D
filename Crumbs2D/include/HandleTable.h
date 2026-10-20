@@ -98,6 +98,11 @@ public:
         const uint32_t handle = m_IndexToHandle[index];
         return {handle, m_Generations[handle]};
     }
+    Id IdOfHandle(uint32_t handle) const
+    {
+        assert(handle < m_Generations.size() && "Handle hors limites");
+        return {handle, m_Generations[handle]};
+    }
 
 private:
     uint32_t GetIndex(Id id) const

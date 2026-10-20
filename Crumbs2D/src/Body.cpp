@@ -4,6 +4,7 @@
 #include "CrumbsMath.h"
 #include "World.h"
 #include "glm/geometric.hpp"
+#include "BroadPhase.h"
 #include <cassert>
 
 namespace Crumbs2D
@@ -142,7 +143,11 @@ Collider Body::AddCollider(const ColliderGeometry& geometry, glm::vec2 localPosi
 
     colliders.Get(colliderId, &ColliderColumns::LocalPosition) = localPosition;
     colliders.Get(colliderId, &ColliderColumns::LocalRotation) = localRotation;
-
+    // AddCollider : juste avant RecalculateMassData()
+    const Collider collider(colliderId.Handle, colliderId.Generation, m_World);
+    collider.RecomputeAABB();
+    colliders.Get(colliderId, &ColliderColumns::Proxy) =
+        m_World->m_BroadPhase->AddProxy(colliders.Get(colliderId, &ColliderColumns::AABB), colliderId.Handle);
     RecalculateMassData();
     return Collider(colliderId.Handle, colliderId.Generation, m_World);
 }

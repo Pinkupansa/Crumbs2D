@@ -41,7 +41,6 @@ void World::RecomputeAABBs()
     }
 }
 
-// World.cpp, avec #include <chrono>
 void World::Step()
 {
     assert(m_Bodies);
@@ -62,10 +61,21 @@ void World::Step()
     RecomputeAABBs();
     const Clock::time_point t3 = Clock::now();
 
-    const std::vector<ColliderPair>& pairs = m_BroadPhase->FindPairs(*m_Bodies, *m_Colliders);
+    m_BroadPhase->UpdateProxies(*m_Colliders);
     const Clock::time_point t4 = Clock::now();
 
-    m_Profile = {ms(t0, t4), ms(t0, t1), ms(t1, t2), ms(t2, t3), ms(t3, t4), static_cast<uint32_t>(pairs.size())};
+    const std::vector<ColliderPair>& pairs = m_BroadPhase->FindPairs(*m_Bodies, *m_Colliders);
+    const Clock::time_point t5 = Clock::now();
+
+    m_Profile = {
+        .TotalMs = ms(t0, t5),
+        .IntegrateVelocitiesMs = ms(t0, t1),
+        .IntegratePositionsMs = ms(t1, t2),
+        .AABBMs = ms(t2, t3),
+        .TreeUpdateMs = ms(t3, t4),
+        .BroadPhaseMs = ms(t4, t5),
+        .PairCount = static_cast<uint32_t>(pairs.size()),
+    };
 }
 Body World::CreateBody()
 {
@@ -91,5 +101,14 @@ std::vector<std::pair<Collider, Collider>> World::GetCandidatePairs()
         );
     return result;
 }
+
+void World::ForEachBroadPhaseNode(const std::function<void(const AABB&, uint16_t, bool)>& f) const
+{
+    m_BroadPhase->GetTree().ForEachNode([&](const AABB& bound, uint16_t height, bool isLeaf) {
+        f(bound, height, isLeaf);
+    });
+}
+
+bool World::ValidateBroadPhase() const { return m_BroadPhase->GetTree().Validate(); }
 
 } // namespace Crumbs2D
