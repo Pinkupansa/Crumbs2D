@@ -62,10 +62,9 @@ void BroadPhaseScene::CreateBodies()
         body.SetAngularVelocity(speed(rng));
 
         if (isCircle(rng))
-            body.AddCollider(Crumbs2D::ColliderGeometry::MakeCircle({size(rng)}), {0.0f, 0.0f}, 0.0f);
+            body.AddCollider(Crumbs2D::ColliderGeometry::MakeCircle({size(rng)}));
         else
-            body.AddCollider(Crumbs2D::ColliderGeometry::MakeBox({{size(rng), size(rng) * 0.6f}}), {0.0f, 0.0f}, 0.0f);
-
+            body.AddCollider(Crumbs2D::ColliderGeometry::MakeBox({{size(rng), size(rng) * 0.6f}}));
         m_Bodies.push_back(body);
     }
 
@@ -73,8 +72,8 @@ void BroadPhaseScene::CreateBodies()
     Crumbs2D::Body compound = m_World.CreateBody();
     compound.SetPosition({-4.0f, 0.0f});
     compound.SetAngularVelocity(0.5f);
-    compound.AddCollider(Crumbs2D::ColliderGeometry::MakeBox({{1.2f, 0.4f}}), {0.0f, 0.0f}, 0.0f);
-    compound.AddCollider(Crumbs2D::ColliderGeometry::MakeCircle({0.6f}), {1.0f, 0.0f}, 0.0f);
+    compound.AddCollider(Crumbs2D::ColliderGeometry::MakeBox({{1.2f, 0.4f}}));
+    compound.AddCollider(Crumbs2D::ColliderGeometry::MakeCircle({0.6f}), {{1.0f, 0.0f}, 0.0f});
     m_Bodies.push_back(compound);
 
     // Piège 2 : deux bodies statiques qui se chevauchent -> aucune paire entre eux.
@@ -83,13 +82,13 @@ void BroadPhaseScene::CreateBodies()
         Crumbs2D::Body ground = m_World.CreateBody();
         ground.SetIsStatic(true);
         ground.SetPosition({x, -kHalfArea + 1.0f});
-        ground.AddCollider(Crumbs2D::ColliderGeometry::MakeBox({{1.5f, 0.5f}}), {0.0f, 0.0f}, 0.0f);
+        ground.AddCollider(Crumbs2D::ColliderGeometry::MakeBox({{1.5f, 0.5f}}));
         m_Bodies.push_back(ground);
     }
 
     // Le body déplaçable à la souris.
     m_DraggedBody = m_World.CreateBody();
-    m_DraggedBody.AddCollider(Crumbs2D::ColliderGeometry::MakeBox({{1.5f, 1.0f}}), {0.0f, 0.0f}, 0.0f);
+    m_DraggedBody.AddCollider(Crumbs2D::ColliderGeometry::MakeBox({{1.5f, 1.0f}}));
     m_Bodies.push_back(m_DraggedBody);
 
     m_Accumulator = 0.0f;
@@ -237,15 +236,14 @@ void BroadPhaseScene::OnDraw()
                 continue;
 
             const Crumbs2D::ColliderGeometry& geometry = collider.GetGeometry();
-            const glm::vec2 position = collider.GetGlobalPosition();
-
+            const Crumbs2D::Transform xf = collider.GetWorldTransform();
             switch (geometry.GetType())
             {
                 case Crumbs2D::ShapeType::Circle:
-                    RLRenderer::DrawCircle(position, geometry.AsCircle().Radius, color);
+                    RLRenderer::DrawCircle(xf.Position, geometry.AsCircle().Radius, color);
                     break;
                 case Crumbs2D::ShapeType::Box:
-                    RLRenderer::DrawBox(position, geometry.AsBox().HalfExtents, collider.GetGlobalRotation(), color);
+                    RLRenderer::DrawBox(xf.Position, geometry.AsBox().HalfExtents, xf.Rotation, color);
                     break;
             }
         }

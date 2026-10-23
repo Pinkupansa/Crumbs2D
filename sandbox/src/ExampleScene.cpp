@@ -63,9 +63,9 @@ void ExampleScene::OnDraw()
 {
     Crumbs2D::Collider collider = m_BoxBody.GetCollider(0);
     RLRenderer::DrawBox(
-        collider.GetGlobalPosition(),
+        collider.GetWorldPosition(),
         collider.GetGeometry().AsBox().HalfExtents,
-        collider.GetGlobalRotation(),
+        collider.GetWorldRotation(),
         {0, 255, 0}
     );
     Crumbs2D::AABB aabb = collider.GetAABB();

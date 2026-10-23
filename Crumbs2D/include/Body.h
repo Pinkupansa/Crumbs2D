@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <glm/vec2.hpp>
 #include "Collider.h"
+#include "Transform.h"
+
 namespace Crumbs2D
 {
 class World;
@@ -28,6 +30,8 @@ private:
     template <typename T> T& Value(Column<T> BodyColumns::* column) const;
     void RecalculateMassData() const;
 
+    void RefreshColliders() const;
+
 public:
     Body() = default;
     bool IsValid() const;
@@ -47,6 +51,7 @@ public:
     void SetMass(float mass) const;
     float GetMass() const;
 
+    Transform GetTransform() const;
     void SetIsStatic(bool isStatic) const;
     bool IsStatic() const;
 
@@ -59,9 +64,7 @@ public:
     void AddForceAtPoint(glm::vec2 force, glm::vec2 point) const;
     void AddImpulseAtPoint(glm::vec2 impulse, glm::vec2 point) const;
 
-    Collider AddCollider(
-        const ColliderGeometry& geometry, glm::vec2 localPosition = {0.0f, 0.0f}, float localRotation = 0.0f
-    ) const;
+    Collider AddCollider(const ColliderGeometry& geometry, const Transform& localTransform = {}) const;
     void DeleteCollider(const Collider& collider) const;
     Collider GetCollider(uint32_t colliderIndex) const;
 

@@ -4,6 +4,7 @@
 #include <cassert>
 #include "CrumbsMath.h"
 #include "AABB.h"
+#include "Transform.h"
 namespace Crumbs2D
 {
 enum class ShapeType : uint8_t { Circle, Box };
@@ -100,8 +101,10 @@ public:
         return 0.0f;
     }
 
-    static AABB RecomputeAABB(const ColliderGeometry& geometry, glm::vec2 globalPosition, float globalRotation)
+    static AABB RecomputeAABB(const ColliderGeometry& geometry, const Transform& worldTransform)
     {
+        float globalRotation = worldTransform.Rotation;
+        glm::vec2 globalPosition = worldTransform.Position;
         switch (geometry.GetType())
         {
             case ShapeType::Box: {

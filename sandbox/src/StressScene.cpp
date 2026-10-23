@@ -57,7 +57,7 @@ void StressScene::CreateBodies()
         body.SetPosition({position(rng), position(rng)});
         body.SetVelocity({speed(rng), speed(rng)});
         body.SetAngularVelocity(spin(rng));
-        body.AddCollider(Crumbs2D::ColliderGeometry::MakeBox({{kHalfBox, kHalfBox}}), {0.0f, 0.0f}, 0.0f);
+        body.AddCollider(Crumbs2D::ColliderGeometry::MakeBox({{kHalfBox, kHalfBox}}));
         m_Bodies.push_back(body);
     }
 
@@ -165,7 +165,7 @@ void StressScene::OnDraw()
             if (m_DrawColliders)
             {
                 const Crumbs2D::ColliderGeometry& geometry = collider.GetGeometry();
-                const glm::vec2 position = collider.GetGlobalPosition();
+                const glm::vec2 position = collider.GetWorldPosition();
 
                 switch (geometry.GetType())
                 {
@@ -174,7 +174,7 @@ void StressScene::OnDraw()
                         break;
                     case Crumbs2D::ShapeType::Box:
                         RLRenderer::DrawBox(
-                            position, geometry.AsBox().HalfExtents, collider.GetGlobalRotation(), kColliderColor
+                            position, geometry.AsBox().HalfExtents, collider.GetWorldRotation(), kColliderColor
                         );
                         break;
                 }

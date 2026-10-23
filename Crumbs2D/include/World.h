@@ -11,6 +11,7 @@ namespace Crumbs2D
 struct BodyStorage;
 struct ColliderStorage;
 class BroadPhase;
+class NarrowPhase;
 struct PhysicsSettings
 { glm::vec2 Gravity = {0, 0}; };
 
@@ -26,6 +27,17 @@ struct StepProfile
     float BroadPhaseMs = 0.0f;
     float TreeUpdateMs = 0.0f;
     uint32_t PairCount = 0;
+};
+// World.h, avant la classe World
+struct ContactInfo
+{
+    Collider First;
+    Collider Second;
+    glm::vec2 Normal = {0.0f, 0.0f};
+    uint32_t PointCount = 0;
+    glm::vec2 Points[2] = {};
+    float Separations[2] = {};
+    uint32_t FeatureIDs[2] = {};
 };
 
 class World
@@ -43,6 +55,7 @@ private:
     Scope<BodyStorage> m_Bodies;
     Scope<ColliderStorage> m_Colliders;
     Scope<BroadPhase> m_BroadPhase;
+    Scope<NarrowPhase> m_NarrowPhase;
 
     SolverSettings m_SolverSettings;
 
@@ -54,7 +67,7 @@ private:
     friend class BroadPhase;
     bool IsValid(const Body& body) const;
     bool IsValid(const Collider& collider) const;
-    void RecomputeAABBs();
+    void SynchronizeColliders();
 
 public:
     Crumbs2D::PhysicsSettings PhysicsSettings;
@@ -68,5 +81,6 @@ public:
     const StepProfile& GetProfile() const { return m_Profile; }
     void ForEachBroadPhaseNode(const std::function<void(const AABB&, uint16_t height, bool isLeaf)>& f) const;
     bool ValidateBroadPhase() const;
+    std::vector<ContactInfo> GetContacts() const;
 };
 } // namespace Crumbs2D

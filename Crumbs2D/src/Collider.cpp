@@ -1,9 +1,12 @@
 #include "Collider.h"
+
 #include "ColliderStorage.h"
 #include "CrumbsMath.h"
 #include "World.h"
 #include "Body.h"
 #include "BodyStorage.h"
+#include "BroadPhase.h"
+
 #include <cassert>
 
 namespace Crumbs2D
@@ -21,35 +24,10 @@ Body Collider::GetBody() const
     return Body(ownerId.Handle, ownerId.Generation, m_World);
 }
 
-glm::vec2 Collider::GetLocalPosition() const { return Value(&ColliderColumns::LocalPosition); }
-
-void Collider::SetLocalPosition(glm::vec2 position) const
-{
-    Value(&ColliderColumns::LocalPosition) = position;
-    GetBody().RecalculateMassData();
-    RecomputeAABB();
-}
-
-// Collider.cpp
-glm::vec2 Collider::GetGlobalPosition() const
-{ return GetBody().GetPosition() + Rotate(GetLocalPosition(), GetBody().GetRotation()); }
+glm::vec2 Collider::GetLocalCenter() const
+{ return Transform::ApplyToPoint(GetLocalTransform(), ColliderGeometry::ComputeCenter(GetGeometry())); }
 
 float Collider::GetFrictionCoefficient() const { return Value(&ColliderColumns::FrictionCoefficient); }
-
-void Collider::RecomputeAABB() const
-{
-    Value(&ColliderColumns::AABB) =
-        ColliderGeometry::RecomputeAABB(GetGeometry(), GetGlobalPosition(), GetGlobalRotation());
-}
-float Collider::GetGlobalRotation() const { return GetBody().GetRotation() + GetLocalRotation(); }
-
-float Collider::GetLocalRotation() const { return Value(&ColliderColumns::LocalRotation); }
-
-void Collider::SetLocalRotation(float rotation) const
-{
-    Value(&ColliderColumns::LocalRotation) = rotation;
-    RecomputeAABB();
-}
 
 void Collider::SetFrictionCoefficient(float frictionCoefficient) const
 { Value(&ColliderColumns::FrictionCoefficient) = frictionCoefficient; }
@@ -57,5 +35,43 @@ void Collider::SetFrictionCoefficient(float frictionCoefficient) const
 const ColliderGeometry& Collider::GetGeometry() const { return Value(&ColliderColumns::Geometry); }
 
 const AABB Collider::GetAABB() const { return Value(&ColliderColumns::AABB); }
+
+Transform Collider::GetLocalTransform() const { return Value(&ColliderColumns::LocalTransform); }
+
+void Collider::RefreshWorldPlacement() const
+{
+    const Transform worldTransform = Transform::Compose(GetBody().GetTransform(), GetLocalTransform());
+    Value(&ColliderColumns::WorldTransform) = worldTransform;
+    Value(&ColliderColumns::AABB) = ColliderGeometry::RecomputeAABB(GetGeometry(), worldTransform);
+}
+
+Transform Collider::GetWorldTransform() const { return Value(&ColliderColumns::WorldTransform); }
+glm::vec2 Collider::GetWorldPosition() const { return GetWorldTransform().Position; }
+float Collider::GetWorldRotation() const { return GetWorldTransform().Rotation; }
+
+void Collider::SetLocalTransform(const Transform& localTransform) const
+{
+    Value(&ColliderColumns::LocalTransform) = localTransform;
+    OnLocalTransformChanged();
+}
+
+void Collider::SetLocalPosition(glm::vec2 position) const
+{
+    Value(&ColliderColumns::LocalTransform).Position = position;
+    OnLocalTransformChanged();
+}
+
+void Collider::SetLocalRotation(float rotation) const
+{
+    Value(&ColliderColumns::LocalTransform).Rotation = rotation;
+    OnLocalTransformChanged();
+}
+
+void Collider::OnLocalTransformChanged() const
+{
+    GetBody().RecalculateMassData();
+    RefreshWorldPlacement();
+    m_World->m_BroadPhase->MoveProxy(Value(&ColliderColumns::Proxy), Value(&ColliderColumns::AABB));
+}
 
 } // namespace Crumbs2D

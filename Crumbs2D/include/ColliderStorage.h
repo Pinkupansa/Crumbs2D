@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include "Geometry.h"
+#include "Transform.h"
 namespace Crumbs2D
 {
 
@@ -17,10 +18,12 @@ struct ColliderColumns
     Column<Id> PrevCollider{{}, {INVALID_HANDLE, 0}};
     Column<Id> NextCollider{{}, {INVALID_HANDLE, 0}};
 
-    Column<glm::vec2> LocalPosition{{}, glm::vec2(0.0f, 0.0f)};
-    Column<float> LocalRotation{{}, 0};
+    Column<Transform> LocalTransform{{}, Transform{}};
+
     Column<ColliderGeometry> Geometry{{}, ColliderGeometry::MakeBox({})};
     Column<AABB> AABB{{}, {{0.0f, 0.0f}, {1.0f, 1.0f}}};
+    Column<Transform> WorldTransform{{}, Transform{}};
+
     Column<float> FrictionCoefficient{{}, 0.6f};
     Column<uint32_t> Proxy{{}, UINT32_MAX};
 
@@ -29,12 +32,12 @@ struct ColliderColumns
         f(Body);
         f(PrevCollider);
         f(NextCollider);
-        f(LocalPosition);
-        f(LocalRotation);
         f(Geometry);
         f(AABB);
         f(FrictionCoefficient);
         f(Proxy);
+        f(LocalTransform);
+        f(WorldTransform);
     }
 };
 

@@ -4,3 +4,4 @@
 #include "Body.h"
 #include "Collider.h"
 #include "Geometry.h"
+#include "Contact.h"

@@ -4,12 +4,14 @@
 #include "Integrator.h"
 #include <cassert>
 #include "BroadPhase.h"
+#include "NarrowPhase.h"
 namespace Crumbs2D
 {
 
 World::World(const SolverSettings& solverSettings)
     : m_Bodies(CreateScope<BodyStorage>()), m_Colliders(CreateScope<ColliderStorage>()),
-      m_BroadPhase(CreateScope<BroadPhase>()), m_SolverSettings(solverSettings)
+      m_BroadPhase(CreateScope<BroadPhase>()), m_SolverSettings(solverSettings),
+      m_NarrowPhase(CreateScope<NarrowPhase>())
 { assert(m_SolverSettings.DeltaTime > 0.0f && "DeltaTime must be positive"); }
 
 World::~World() = default;
@@ -22,7 +24,7 @@ bool World::IsValid(const Body& body) const
 bool World::IsValid(const Collider& collider) const
 { return collider.m_World == this && m_Colliders->IsValid({collider.m_Handle, collider.m_Generation}); }
 
-void World::RecomputeAABBs()
+void World::SynchronizeColliders()
 {
     ColliderColumns& colliders = m_Colliders->Columns;
     const BodyStorage& bodies = *m_Bodies;
@@ -30,14 +32,13 @@ void World::RecomputeAABBs()
     for (uint32_t i = 0; i < m_Colliders->Count(); i++)
     {
         const Id bodyId = colliders.Body.Data[i];
-        const glm::vec2 bodyPosition = bodies.Get(bodyId, &BodyColumns::Position);
-        const float bodyRotation = bodies.Get(bodyId, &BodyColumns::Rotation);
+        const Transform bodyTransform = {
+            bodies.Get(bodyId, &BodyColumns::Position), bodies.Get(bodyId, &BodyColumns::Rotation)
+        };
 
-        const glm::vec2 worldPosition = bodyPosition + Rotate(colliders.LocalPosition.Data[i], bodyRotation);
-        const float worldRotation = bodyRotation + colliders.LocalRotation.Data[i];
-
-        colliders.AABB.Data[i] =
-            ColliderGeometry::RecomputeAABB(colliders.Geometry.Data[i], worldPosition, worldRotation);
+        const Transform worldTransform = Transform::Compose(bodyTransform, colliders.LocalTransform.Data[i]);
+        colliders.WorldTransform.Data[i] = worldTransform;
+        colliders.AABB.Data[i] = ColliderGeometry::RecomputeAABB(colliders.Geometry.Data[i], worldTransform);
     }
 }
 
@@ -58,7 +59,7 @@ void World::Step()
     Integrator::IntegratePositions(*m_Bodies, dt);
     const Clock::time_point t2 = Clock::now();
 
-    RecomputeAABBs();
+    SynchronizeColliders();
     const Clock::time_point t3 = Clock::now();
 
     m_BroadPhase->UpdateProxies(*m_Colliders);
@@ -66,7 +67,7 @@ void World::Step()
 
     const std::vector<ColliderPair>& pairs = m_BroadPhase->FindPairs(*m_Bodies, *m_Colliders);
     const Clock::time_point t5 = Clock::now();
-
+    m_NarrowPhase->FindContacts(*m_Colliders, pairs);
     m_Profile = {
         .TotalMs = ms(t0, t5),
         .IntegrateVelocitiesMs = ms(t0, t1),
@@ -111,4 +112,27 @@ void World::ForEachBroadPhaseNode(const std::function<void(const AABB&, uint16_t
 
 bool World::ValidateBroadPhase() const { return m_BroadPhase->GetTree().Validate(); }
 
+std::vector<ContactInfo> World::GetContacts() const
+{
+    std::vector<ContactInfo> result;
+    for (const Contact& contact : m_NarrowPhase->GetContacts())
+    {
+        ContactInfo info;
+        info.First =
+            Collider(contact.Colliders.First().Handle, contact.Colliders.First().Generation, const_cast<World*>(this));
+        info.Second = Collider(
+            contact.Colliders.Second().Handle, contact.Colliders.Second().Generation, const_cast<World*>(this)
+        );
+        info.Normal = contact.Manifold.Normal;
+        info.PointCount = contact.Manifold.PointCount;
+        for (uint32_t i = 0; i < contact.Manifold.PointCount; ++i)
+        {
+            info.Points[i] = contact.Manifold.Points[i].Position;
+            info.Separations[i] = contact.Manifold.Points[i].Separation;
+            info.FeatureIDs[i] = contact.Manifold.Points[i].FeatureID;
+        }
+        result.push_back(info);
+    }
+    return result;
+}
 } // namespace Crumbs2D

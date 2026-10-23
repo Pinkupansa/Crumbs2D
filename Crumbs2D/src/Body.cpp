@@ -25,7 +25,7 @@ void Body::RecalculateMassData() const
     {
         const float area = ColliderGeometry::ComputeArea(coll.GetGeometry());
         totalArea += area;
-        weightedCenter += area * coll.GetLocalPosition();
+        weightedCenter += area * coll.GetLocalCenter();
     }
 
     if (totalArea == 0)
@@ -45,7 +45,7 @@ void Body::RecalculateMassData() const
         const ColliderGeometry& geometry = coll.GetGeometry();
         float colliderMass = density * ColliderGeometry::ComputeArea(geometry);
 
-        const glm::vec2 offset = coll.GetLocalPosition() - massCenter;
+        const glm::vec2 offset = coll.GetLocalCenter() - massCenter;
         totalInertia += density * ColliderGeometry::ComputeUnitInertia(geometry) // autour de son propre centre
                         + colliderMass * glm::dot(offset, offset);               // décalage (Huygens)
     }
@@ -53,6 +53,18 @@ void Body::RecalculateMassData() const
     Value(&BodyColumns::MassCenterLocal) = massCenter;
     Value(&BodyColumns::MassCenter) = Value(&BodyColumns::Position) + Rotate(massCenter, Value(&BodyColumns::Rotation));
     Value(&BodyColumns::InverseInertia) = (!IsStatic() && totalInertia > 0.0f) ? 1.0f / totalInertia : 0.0f;
+}
+
+void Body::RefreshColliders() const
+{
+    for (const Collider& collider : GetColliders())
+    {
+        collider.RefreshWorldPlacement();
+        m_World->m_BroadPhase->MoveProxy(
+            m_World->m_Colliders->Get({collider.m_Handle, collider.m_Generation}, &ColliderColumns::Proxy),
+            collider.GetAABB()
+        );
+    }
 }
 
 bool Body::IsValid() const { return m_World != nullptr && m_World->IsValid(*this); }
@@ -65,6 +77,7 @@ void Body::SetPosition(glm::vec2 position) const
     Value(&BodyColumns::Position) = position;
     Value(&BodyColumns::MassCenter) =
         position + Rotate(Value(&BodyColumns::MassCenterLocal), Value(&BodyColumns::Rotation));
+    RefreshColliders();
 }
 glm::vec2 Body::GetPosition() const { return Value(&BodyColumns::Position); }
 
@@ -76,6 +89,7 @@ void Body::SetRotation(float rotation) const
     Value(&BodyColumns::Rotation) = rotation;
     Value(&BodyColumns::MassCenter) =
         Value(&BodyColumns::Position) + Rotate(Value(&BodyColumns::MassCenterLocal), Value(&BodyColumns::Rotation));
+    RefreshColliders();
 }
 float Body::GetRotation() const { return Value(&BodyColumns::Rotation); }
 
@@ -91,6 +105,8 @@ float Body::GetMass() const
     const float inverseMass = Value(&BodyColumns::InverseMass);
     return inverseMass > 0.0f ? 1.0f / inverseMass : 0.0f;
 }
+
+Transform Body::GetTransform() const { return {GetPosition(), GetRotation()}; }
 
 void Body::SetIsStatic(bool isStatic) const
 {
@@ -125,7 +141,7 @@ void Body::AddImpulseAtPoint(glm::vec2 impulse, glm::vec2 point) const
 
 uint32_t Body::GetColliderCount() const { return Value(&BodyColumns::ColliderCount); }
 
-Collider Body::AddCollider(const ColliderGeometry& geometry, glm::vec2 localPosition, float localRotation) const
+Collider Body::AddCollider(const ColliderGeometry& geometry, const Transform& localTransform) const
 {
     ColliderStorage& colliders = *m_World->m_Colliders;
 
@@ -141,11 +157,10 @@ Collider Body::AddCollider(const ColliderGeometry& geometry, glm::vec2 localPosi
     first = colliderId;
     Value(&BodyColumns::ColliderCount)++;
 
-    colliders.Get(colliderId, &ColliderColumns::LocalPosition) = localPosition;
-    colliders.Get(colliderId, &ColliderColumns::LocalRotation) = localRotation;
-    // AddCollider : juste avant RecalculateMassData()
+    colliders.Get(colliderId, &ColliderColumns::LocalTransform) = localTransform;
+
     const Collider collider(colliderId.Handle, colliderId.Generation, m_World);
-    collider.RecomputeAABB();
+    collider.RefreshWorldPlacement();
     colliders.Get(colliderId, &ColliderColumns::Proxy) =
         m_World->m_BroadPhase->AddProxy(colliders.Get(colliderId, &ColliderColumns::AABB), colliderId.Handle);
     RecalculateMassData();
