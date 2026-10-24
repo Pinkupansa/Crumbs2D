@@ -2,7 +2,6 @@
 
 #include "RLInput.h"
 #include "RLRenderer.h"
-
 #include "imgui.h"
 
 #include <cmath>
@@ -129,6 +128,11 @@ void ContactScene::OnDraw()
     DrawShape(m_Bodies[0], kFirstColor);
     DrawShape(m_Bodies[1], kSecondColor);
 
+    Crumbs2D::AABB aabb1 = m_Bodies[0].GetCollider(0).GetAABB();
+    Crumbs2D::AABB aabb2 = m_Bodies[1].GetCollider(0).GetAABB();
+
+    RLRenderer::DrawBox((aabb1.max + aabb1.min) / 2.0f, (aabb1.max - aabb1.min) / 2.0f, 0, {0, 255, 0});
+    RLRenderer::DrawBox((aabb2.max + aabb2.min) / 2.0f, (aabb2.max - aabb2.min) / 2.0f, 0, {0, 255, 0});
     const float markerRadius = 4.0f / m_Camera.GetZoom();
 
     for (const Crumbs2D::ContactInfo& contact : m_Contacts)

@@ -5,12 +5,14 @@
 #include <cassert>
 #include "BroadPhase.h"
 #include "NarrowPhase.h"
+#include "ContactSolver.h"
 namespace Crumbs2D
 {
 
 World::World(const SolverSettings& solverSettings)
     : m_Bodies(CreateScope<BodyStorage>()), m_Colliders(CreateScope<ColliderStorage>()),
       m_BroadPhase(CreateScope<BroadPhase>()), m_SolverSettings(solverSettings),
+      m_ContactSolver(CreateScope<ContactSolver>(solverSettings.Iterations, solverSettings.Beta, solverSettings.Slop)),
       m_NarrowPhase(CreateScope<NarrowPhase>())
 { assert(m_SolverSettings.DeltaTime > 0.0f && "DeltaTime must be positive"); }
 
@@ -55,7 +57,7 @@ void World::Step()
 
     Integrator::IntegrateVelocities(*m_Bodies, PhysicsSettings, dt);
     const Clock::time_point t1 = Clock::now();
-
+    m_ContactSolver->SolveContacts(*m_Bodies, *m_Colliders, m_NarrowPhase->GetContacts(), dt);
     Integrator::IntegratePositions(*m_Bodies, dt);
     const Clock::time_point t2 = Clock::now();
 

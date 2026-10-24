@@ -8,8 +8,7 @@ inline glm::vec2 Rotate(glm::vec2 a, float angle)
 {
     float c = cos(angle);
     float s = sin(angle);
-    return {c * a.x + s * a.y, c * a.y - s * a.x};
+    return {c * a.x - s * a.y, c * a.y + s * a.x};
 }
 static constexpr float PI = 3.14159265358979323846f;
-static constexpr float EPSILON = 0.000001f;
 } // namespace Crumbs2D

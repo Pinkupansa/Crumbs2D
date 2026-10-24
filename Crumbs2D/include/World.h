@@ -12,11 +12,18 @@ struct BodyStorage;
 struct ColliderStorage;
 class BroadPhase;
 class NarrowPhase;
+class ContactSolver;
+
 struct PhysicsSettings
 { glm::vec2 Gravity = {0, 0}; };
 
 struct SolverSettings
-{ float DeltaTime = 1.0f / 60.0f; };
+{
+    float DeltaTime = 1.0f / 60.0f;
+    int Iterations = 10;
+    float Beta = 0.2f;
+    float Slop = 0.005f;
+};
 
 struct StepProfile
 {
@@ -56,6 +63,7 @@ private:
     Scope<ColliderStorage> m_Colliders;
     Scope<BroadPhase> m_BroadPhase;
     Scope<NarrowPhase> m_NarrowPhase;
+    Scope<ContactSolver> m_ContactSolver;
 
     SolverSettings m_SolverSettings;
 

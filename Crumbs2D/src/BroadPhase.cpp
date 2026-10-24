@@ -1,5 +1,7 @@
 #include "BroadPhase.h"
 #include "ColliderStorage.h"
+#include "Constants.h"
+#include <iostream>
 namespace Crumbs2D
 {
 
@@ -56,8 +58,13 @@ BroadPhase::FindPairs(const BodyStorage& bodyStorage, const ColliderStorage& col
             if (staticA && bodyStorage.Get(bodyB, &BodyColumns::IsStatic) != 0)
                 return;
 
-            if (AABB::TestOverlap(aabbA, colliderStorage.Get(idB, &ColliderColumns::AABB)))
+            if (AABB::TestOverlap(
+                    AABB::Fatten(aabbA, SPECULATIVE_DISTANCE),
+                    AABB::Fatten(colliderStorage.Get(idB, &ColliderColumns::AABB), SPECULATIVE_DISTANCE)
+                ))
+            {
                 m_Pairs.push_back(ColliderPair(idA, idB));
+            }
         });
     }
 

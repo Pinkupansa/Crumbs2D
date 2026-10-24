@@ -1,11 +1,11 @@
 #include "NarrowPhase.h"
 #include "Geometry.h"
+#include "Constants.h"
 #include <glm/common.hpp>
 #include <glm/geometric.hpp>
 #include <limits>
 namespace Crumbs2D
 {
-static const float SPECULATIVE_DISTANCE = 0.02f;
 static ContactManifold FindCircleCircle(
     CircleData firstCircle,
     const Transform& worldTransformFirst,
@@ -227,10 +227,13 @@ static ContactManifold FindContact(
         case ShapeType::Circle:
             switch (geometrySecond.GetType())
             {
-                case ShapeType::Box:
-                    return FindBoxCircle(
+                case ShapeType::Box: {
+                    ContactManifold manifold = FindBoxCircle(
                         geometrySecond.AsBox(), worldTransformSecond, geometryFirst.AsCircle(), worldTransformFirst
                     );
+                    manifold.Normal = -manifold.Normal; // normal must go from smaller to bigger to fit solver
+                    return manifold;
+                }
 
                 case ShapeType::Circle:
                     return FindCircleCircle(

@@ -12,6 +12,6 @@ private:
 public:
     const std::vector<Contact>&
     FindContacts(const ColliderStorage& colliderStorage, const std::vector<ColliderPair>& candidates);
-    const std::vector<Contact>& GetContacts() const { return m_Contacts; }
+    std::vector<Contact>& GetContacts() { return m_Contacts; }
 };
 } // namespace Crumbs2D

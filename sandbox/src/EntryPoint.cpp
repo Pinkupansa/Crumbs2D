@@ -5,10 +5,11 @@
 #include "StressScene.h"
 #include "ContactScene.h"
 #include "Crumbs2D.h"
+#include "SolverScene.h"
 
 int main()
 {
 
-    SandboxApp app(Crumbs2D::CreateScope<ContactScene>());
+    SandboxApp app(Crumbs2D::CreateScope<SolverScene>());
     app.Run();
 }
