@@ -25,16 +25,6 @@ struct SolverSettings
     float Slop = 0.005f;
 };
 
-struct StepProfile
-{
-    float TotalMs = 0.0f;
-    float IntegrateVelocitiesMs = 0.0f;
-    float IntegratePositionsMs = 0.0f;
-    float AABBMs = 0.0f;
-    float BroadPhaseMs = 0.0f;
-    float TreeUpdateMs = 0.0f;
-    uint32_t PairCount = 0;
-};
 // World.h, avant la classe World
 struct ContactInfo
 {
@@ -67,8 +57,6 @@ private:
 
     SolverSettings m_SolverSettings;
 
-    StepProfile m_Profile;
-
 private:
     friend class Body;
     friend class Collider;
@@ -86,7 +74,6 @@ public:
     void DeleteBody(const Body& body);
     const SolverSettings& GetSolverSettings() const { return m_SolverSettings; }
     std::vector<std::pair<Collider, Collider>> GetCandidatePairs();
-    const StepProfile& GetProfile() const { return m_Profile; }
     void ForEachBroadPhaseNode(const std::function<void(const AABB&, uint16_t height, bool isLeaf)>& f) const;
     bool ValidateBroadPhase() const;
     std::vector<ContactInfo> GetContacts() const;

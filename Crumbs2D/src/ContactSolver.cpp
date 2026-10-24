@@ -3,6 +3,7 @@
 #include <glm/vec2.hpp>
 #include <glm/geometric.hpp>
 #include <algorithm>
+#include "Profiler.h"
 namespace Crumbs2D
 {
 // ContactSolver.cpp
@@ -10,6 +11,7 @@ void ContactSolver::SolveContacts(
     BodyStorage& bodyStorage, ColliderStorage& colliderStorage, std::vector<Contact>& contacts, float deltaTime
 )
 {
+    PROFILE_FUNCTION();
     m_Constraints.clear();
 
     for (Contact& contact : contacts)

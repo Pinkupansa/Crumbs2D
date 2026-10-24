@@ -6,6 +6,7 @@
 #include "BroadPhase.h"
 #include "NarrowPhase.h"
 #include "ContactSolver.h"
+#include "Profiler.h"
 namespace Crumbs2D
 {
 
@@ -46,39 +47,21 @@ void World::SynchronizeColliders()
 
 void World::Step()
 {
+    PROFILE_FRAME();
     assert(m_Bodies);
-    using Clock = std::chrono::steady_clock;
-    auto ms = [](Clock::time_point a, Clock::time_point b) {
-        return std::chrono::duration<float, std::milli>(b - a).count();
-    };
 
     const float dt = m_SolverSettings.DeltaTime;
-    const Clock::time_point t0 = Clock::now();
 
     Integrator::IntegrateVelocities(*m_Bodies, PhysicsSettings, dt);
-    const Clock::time_point t1 = Clock::now();
     m_ContactSolver->SolveContacts(*m_Bodies, *m_Colliders, m_NarrowPhase->GetContacts(), dt);
     Integrator::IntegratePositions(*m_Bodies, dt);
-    const Clock::time_point t2 = Clock::now();
 
     SynchronizeColliders();
-    const Clock::time_point t3 = Clock::now();
 
     m_BroadPhase->UpdateProxies(*m_Colliders);
-    const Clock::time_point t4 = Clock::now();
 
     const std::vector<ColliderPair>& pairs = m_BroadPhase->FindPairs(*m_Bodies, *m_Colliders);
-    const Clock::time_point t5 = Clock::now();
     m_NarrowPhase->FindContacts(*m_Colliders, pairs);
-    m_Profile = {
-        .TotalMs = ms(t0, t5),
-        .IntegrateVelocitiesMs = ms(t0, t1),
-        .IntegratePositionsMs = ms(t1, t2),
-        .AABBMs = ms(t2, t3),
-        .TreeUpdateMs = ms(t3, t4),
-        .BroadPhaseMs = ms(t4, t5),
-        .PairCount = static_cast<uint32_t>(pairs.size()),
-    };
 }
 Body World::CreateBody()
 {

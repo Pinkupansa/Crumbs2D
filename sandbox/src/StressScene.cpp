@@ -62,7 +62,6 @@ void StressScene::CreateBodies()
     }
 
     m_Accumulator = 0.0f;
-    m_Profile = {};
 }
 
 void StressScene::OnUpdate(float dt)
@@ -84,7 +83,6 @@ void StressScene::OnUpdate(float dt)
     while (m_Accumulator >= stepDuration && steps < kMaxStepsPerFrame)
     {
         m_World.Step();
-        AccumulateProfile();
 
         const Clock::time_point start = Clock::now();
         WrapBodies();
@@ -101,17 +99,6 @@ void StressScene::OnUpdate(float dt)
     m_StepsLastFrame = steps;
     if (steps > 0)
         Smooth(m_WrapMs, wrapMs / static_cast<float>(steps));
-}
-
-void StressScene::AccumulateProfile()
-{
-    const Crumbs2D::StepProfile& p = m_World.GetProfile();
-    Smooth(m_Profile.TotalMs, p.TotalMs);
-    Smooth(m_Profile.IntegrateVelocitiesMs, p.IntegrateVelocitiesMs);
-    Smooth(m_Profile.IntegratePositionsMs, p.IntegratePositionsMs);
-    Smooth(m_Profile.AABBMs, p.AABBMs);
-    Smooth(m_Profile.BroadPhaseMs, p.BroadPhaseMs);
-    m_PairCount = p.PairCount;
 }
 
 void StressScene::WrapBodies()
@@ -210,14 +197,6 @@ void StressScene::OnImGuiRender()
     );
     ImGui::Separator();
 
-    ImGui::Text("Un pas de simulation :");
-    Row("Step (total)", m_Profile.TotalMs, m_Profile.TotalMs);
-    Row("  Vitesses", m_Profile.IntegrateVelocitiesMs, m_Profile.TotalMs);
-    Row("  Positions", m_Profile.IntegratePositionsMs, m_Profile.TotalMs);
-    Row("  AABB", m_Profile.AABBMs, m_Profile.TotalMs);
-    Row("  Broad phase", m_Profile.BroadPhaseMs, m_Profile.TotalMs);
-    ImGui::Separator();
-
     ImGui::Text("Scene :");
     ImGui::Text("%-14s %8.3f ms", "Wrap", static_cast<double>(m_WrapMs));
     ImGui::Text("%-14s %8.3f ms", "Dessin", static_cast<double>(m_DrawMs));
@@ -228,7 +207,6 @@ void StressScene::OnImGuiRender()
     if (ImGui::Button("Pas a pas") && m_Paused)
     {
         m_World.Step();
-        AccumulateProfile();
         WrapBodies();
     }
 

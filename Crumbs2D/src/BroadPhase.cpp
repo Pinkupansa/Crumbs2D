@@ -2,6 +2,7 @@
 #include "ColliderStorage.h"
 #include "Constants.h"
 #include <iostream>
+#include "Profiler.h"
 namespace Crumbs2D
 {
 
@@ -36,6 +37,7 @@ BroadPhase::FindPairsNaive(const BodyStorage& bodyStorage, const ColliderStorage
 const std::vector<ColliderPair>&
 BroadPhase::FindPairs(const BodyStorage& bodyStorage, const ColliderStorage& colliderStorage)
 {
+    PROFILE_FUNCTION();
     m_Pairs.clear();
     const ColliderColumns& colliders = colliderStorage.Columns;
     const uint32_t count = colliderStorage.Count();

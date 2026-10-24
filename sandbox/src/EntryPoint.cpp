@@ -10,6 +10,6 @@
 int main()
 {
 
-    SandboxApp app(Crumbs2D::CreateScope<SolverScene>());
+    SandboxApp app(Crumbs2D::CreateScope<StressScene>());
     app.Run();
 }

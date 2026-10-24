@@ -21,7 +21,6 @@ private:
     void CreateBodies();
     void WrapBodies();
     void UpdateCameraNavigation();
-    void AccumulateProfile();
 
     SceneCamera m_Camera;
     Crumbs2D::World m_World;
@@ -42,7 +41,6 @@ private:
 
     // Mesures lissées, en millisecondes (temps moyen d'UN pas pour le profil du world)
     float m_FrameMs = 0.0f;
-    Crumbs2D::StepProfile m_Profile;
     float m_WrapMs = 0.0f;
     float m_DrawMs = 0.0f;
     uint32_t m_PairCount = 0;

@@ -2,7 +2,8 @@
 
 #include "RLRenderer.h"
 #include "RLWindow.h"
-
+#define PROFILER_IMGUI_IMPLEMENTATION
+#include "Profiler.h"
 SandboxApp::SandboxApp(Crumbs2D::Scope<SandboxScene> scene) : m_Scene(std::move(scene)) {}
 
 void SandboxApp::Run()
@@ -26,6 +27,9 @@ void SandboxApp::Run()
 
         RLRenderer::BeginImGui();
         m_Scene->OnImGuiRender();
+#if PROFILER_ENABLED
+        prof::DrawWindow();
+#endif
         RLRenderer::EndImGui();
 
         RLRenderer::EndFrame();

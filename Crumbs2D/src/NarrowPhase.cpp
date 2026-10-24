@@ -4,6 +4,7 @@
 #include <glm/common.hpp>
 #include <glm/geometric.hpp>
 #include <limits>
+#include "Profiler.h"
 namespace Crumbs2D
 {
 static ContactManifold FindCircleCircle(
@@ -247,6 +248,7 @@ static ContactManifold FindContact(
 const std::vector<Contact>&
 NarrowPhase::FindContacts(const ColliderStorage& colliderStorage, const std::vector<ColliderPair>& candidates)
 {
+    PROFILE_FUNCTION();
     m_CurrentSwapchainIndex = 1 - m_CurrentSwapchainIndex;
 
     std::vector<Contact>& currentBuffer = m_ContactBufferSwapchain[m_CurrentSwapchainIndex];
