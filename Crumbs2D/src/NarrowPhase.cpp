@@ -21,7 +21,7 @@ static ContactManifold FindCircleCircle(
     if (distanceSquared >= maxDist * maxDist)
         return manifold;
 
-    float distance = std::sqrtf(distanceSquared);
+    float distance = std::sqrt(distanceSquared);
     float separation = distance - (firstCircle.Radius + secondCircle.Radius);
     glm::vec2 normalLocal = distance > EPSILON ? secondCircleLocal / distance : glm::vec2{1.0f, 0.0f};
     glm::vec2 contactPointLocal = (firstCircle.Radius + separation / 2.0f) * normalLocal;
@@ -242,11 +242,20 @@ static ContactManifold FindContact(
             }
             break;
     }
+    return {};
 }
 const std::vector<Contact>&
 NarrowPhase::FindContacts(const ColliderStorage& colliderStorage, const std::vector<ColliderPair>& candidates)
 {
-    m_Contacts.clear();
+    m_CurrentSwapchainIndex = 1 - m_CurrentSwapchainIndex;
+
+    std::vector<Contact>& currentBuffer = m_ContactBufferSwapchain[m_CurrentSwapchainIndex];
+    std::unordered_map<uint64_t, uint32_t>& currentCache = m_ContactCacheSwapchain[m_CurrentSwapchainIndex];
+    currentBuffer.clear();
+    currentCache.clear();
+
+    const std::vector<Contact>& oldBuffer = m_ContactBufferSwapchain[1 - m_CurrentSwapchainIndex];
+    const std::unordered_map<uint64_t, uint32_t>& oldCache = m_ContactCacheSwapchain[1 - m_CurrentSwapchainIndex];
 
     const auto& worldTransform = [&](Id collider) {
         return colliderStorage.Get(collider, &ColliderColumns::WorldTransform);
@@ -254,7 +263,7 @@ NarrowPhase::FindContacts(const ColliderStorage& colliderStorage, const std::vec
 
     for (const ColliderPair& pair : candidates)
     {
-        const ContactManifold manifold = FindContact(
+        ContactManifold manifold = FindContact(
             colliderStorage.Get(pair.First(), &ColliderColumns::Geometry),
             worldTransform(pair.First()),
             colliderStorage.Get(pair.Second(), &ColliderColumns::Geometry),
@@ -262,8 +271,25 @@ NarrowPhase::FindContacts(const ColliderStorage& colliderStorage, const std::vec
         );
 
         if (manifold.PointCount > 0)
-            m_Contacts.push_back({pair, manifold});
+        {
+            uint64_t key = pair.MakePairKey();
+            const auto oldIterator = oldCache.find(key);
+            if (oldIterator != oldCache.end())
+            {
+                const ContactManifold& oldManifold = oldBuffer[oldIterator->second].Manifold;
+                for (uint32_t i = 0; i < manifold.PointCount; i++)
+                    for (uint32_t j = 0; j < oldManifold.PointCount; j++)
+                        if (oldManifold.Points[j].FeatureID == manifold.Points[i].FeatureID)
+                        {
+                            manifold.Points[i].NormalImpulse = oldManifold.Points[j].NormalImpulse;
+                            manifold.Points[i].TangentialImpulse = oldManifold.Points[j].TangentialImpulse;
+                            break;
+                        }
+            }
+            currentCache.insert({key, currentBuffer.size()});
+            currentBuffer.push_back({pair, manifold});
+        }
     }
-    return m_Contacts;
+    return m_ContactBufferSwapchain[m_CurrentSwapchainIndex];
 }
 } // namespace Crumbs2D

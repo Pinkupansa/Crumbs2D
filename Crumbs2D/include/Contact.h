@@ -8,9 +8,10 @@ namespace Crumbs2D
 {
 struct ContactPoint
 {
-    glm::vec2 Position = glm::vec2(0.0f);
-    float NormalImpulse, TangentialImpulse = 0;
-    float Separation = 0;
+    glm::vec2 Position = {0.0f, 0.0f};
+    float NormalImpulse = 0.0f;
+    float TangentialImpulse = 0.0f;
+    float Separation = 0.0f;
     uint32_t FeatureID = 0;
 };
 

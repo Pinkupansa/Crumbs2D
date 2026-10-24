@@ -10,6 +10,10 @@ struct ContactConstraintPoint
     float NormalLeverB;
     float NormalMass;
     float DesiredNormalVelocity;
+
+    float TangentialLeverA;
+    float TangentialLeverB;
+    float TangentialMass;
 };
 
 struct ContactConstraint
@@ -22,6 +26,8 @@ struct ContactConstraint
     float InvInertiaA;
     float InvInertiaB;
     glm::vec2 Normal;
+    glm::vec2 Tangent;
+    float FrictionCoefficient;
     ContactConstraintPoint Points[2];
 };
 class ContactSolver
