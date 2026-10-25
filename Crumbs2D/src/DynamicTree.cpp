@@ -1,4 +1,5 @@
 #include "DynamicTree.h"
+#include "Constants.h"
 #include <algorithm>
 namespace Crumbs2D
 {
@@ -173,7 +174,7 @@ void DynamicTree::InsertLeaf(uint32_t index)
         bool insertInFirst = totalCostInsert1 <= totalCostInsert2;
         float insertCost = insertInFirst ? totalCostInsert1 : totalCostInsert2;
 
-        if (insertCost <= costUnionBox)
+        if (insertCost * DESCENT_FACTOR <= costUnionBox)
         {
             // insert in child
             current = insertInFirst ? currentNode.Children.Child1 : currentNode.Children.Child2;
@@ -326,7 +327,7 @@ bool DynamicTree::Validate() const
 uint32_t DynamicTree::CreateProxy(const AABB& bound, uint32_t userID)
 {
     const uint32_t index = AllocateNode();
-    m_NodePool[index].Bound = AABB::Fatten(bound, 0.1f);
+    m_NodePool[index].Bound = AABB::Fatten(bound, AABB_FATTENING);
     m_NodePool[index].UserId = userID;
     m_NodePool[index].IsLeaf = true;
     InsertLeaf(index);
@@ -344,7 +345,7 @@ bool DynamicTree::MoveProxy(const AABB& newBound, uint32_t index)
     if (!AABB::Contains(m_NodePool[index].Bound, newBound))
     {
         RemoveLeaf(index);
-        m_NodePool[index].Bound = AABB::Fatten(newBound, 0.1f);
+        m_NodePool[index].Bound = AABB::Fatten(newBound, AABB_FATTENING);
         InsertLeaf(index);
         return true;
     }

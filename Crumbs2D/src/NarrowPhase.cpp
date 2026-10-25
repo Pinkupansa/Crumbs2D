@@ -259,17 +259,15 @@ NarrowPhase::FindContacts(const ColliderStorage& colliderStorage, const std::vec
     const std::vector<Contact>& oldBuffer = m_ContactBufferSwapchain[1 - m_CurrentSwapchainIndex];
     const std::unordered_map<uint64_t, uint32_t>& oldCache = m_ContactCacheSwapchain[1 - m_CurrentSwapchainIndex];
 
-    const auto& worldTransform = [&](Id collider) {
-        return colliderStorage.Get(collider, &ColliderColumns::WorldTransform);
-    };
-
     for (const ColliderPair& pair : candidates)
     {
+        const auto first = colliderStorage.Row(pair.First());
+        const auto second = colliderStorage.Row(pair.Second());
         ContactManifold manifold = FindContact(
-            colliderStorage.Get(pair.First(), &ColliderColumns::Geometry),
-            worldTransform(pair.First()),
-            colliderStorage.Get(pair.Second(), &ColliderColumns::Geometry),
-            worldTransform(pair.Second())
+            first[&ColliderColumns::Geometry],
+            first[&ColliderColumns::WorldTransform],
+            second[&ColliderColumns::Geometry],
+            second[&ColliderColumns::WorldTransform]
         );
 
         if (manifold.PointCount > 0)

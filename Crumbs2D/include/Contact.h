@@ -42,10 +42,9 @@ public:
         }
     }
 
-    const Id First() const { return m_ColliderA; }
-    const Id Second() const { return m_ColliderB; };
-    const uint64_t MakePairKey() const
-    { return (static_cast<uint64_t>(m_ColliderA.Handle) << 32) | m_ColliderB.Handle; }
+    Id First() const { return m_ColliderA; }
+    Id Second() const { return m_ColliderB; }
+    uint64_t MakePairKey() const { return (static_cast<uint64_t>(m_ColliderA.Handle) << 32) | m_ColliderB.Handle; }
 };
 
 struct Contact

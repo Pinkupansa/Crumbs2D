@@ -3,10 +3,11 @@
 #include <glm/vec2.hpp>
 #include <glm/geometric.hpp>
 #include <algorithm>
+#include <cmath>
+#include <utility>
 #include "Profiler.h"
 namespace Crumbs2D
 {
-// ContactSolver.cpp
 void ContactSolver::SolveContacts(
     BodyStorage& bodyStorage, ColliderStorage& colliderStorage, std::vector<Contact>& contacts, float deltaTime
 )
@@ -14,25 +15,32 @@ void ContactSolver::SolveContacts(
     PROFILE_FUNCTION();
     m_Constraints.clear();
 
+    BodyColumns& bodies = bodyStorage.Columns;
+
     for (Contact& contact : contacts)
     {
+        const auto colliderA = std::as_const(colliderStorage).Row(contact.Colliders.First());
+        const auto colliderB = std::as_const(colliderStorage).Row(contact.Colliders.Second());
+
         ContactConstraint& constraint = m_Constraints.emplace_back();
         constraint.Source = &contact;
-        constraint.BodyA = colliderStorage.Get(contact.Colliders.First(), &ColliderColumns::Body);
-        constraint.BodyB = colliderStorage.Get(contact.Colliders.Second(), &ColliderColumns::Body);
-        constraint.InvMassA = bodyStorage.Get(constraint.BodyA, &BodyColumns::InverseMass);
-        constraint.InvMassB = bodyStorage.Get(constraint.BodyB, &BodyColumns::InverseMass);
-        constraint.InvInertiaA = bodyStorage.Get(constraint.BodyA, &BodyColumns::InverseInertia);
-        constraint.InvInertiaB = bodyStorage.Get(constraint.BodyB, &BodyColumns::InverseInertia);
+        constraint.IndexA = bodyStorage.IndexOf(colliderA[&ColliderColumns::Body]);
+        constraint.IndexB = bodyStorage.IndexOf(colliderB[&ColliderColumns::Body]);
+
+        const auto bodyA = bodyStorage.RowAt(constraint.IndexA);
+        const auto bodyB = bodyStorage.RowAt(constraint.IndexB);
+        constraint.InvMassA = bodyA[&BodyColumns::InverseMass];
+        constraint.InvMassB = bodyB[&BodyColumns::InverseMass];
+        constraint.InvInertiaA = bodyA[&BodyColumns::InverseInertia];
+        constraint.InvInertiaB = bodyB[&BodyColumns::InverseInertia];
         constraint.Normal = contact.Manifold.Normal;
-        constraint.Tangent = Rotate(constraint.Normal, -PI / 2.0f);
+        constraint.Tangent = {constraint.Normal.y, -constraint.Normal.x};
         constraint.FrictionCoefficient = std::sqrt(
-            colliderStorage.Get(contact.Colliders.First(), &ColliderColumns::FrictionCoefficient) *
-            colliderStorage.Get(contact.Colliders.Second(), &ColliderColumns::FrictionCoefficient)
+            colliderA[&ColliderColumns::FrictionCoefficient] * colliderB[&ColliderColumns::FrictionCoefficient]
         );
 
-        const glm::vec2 massCenterA = bodyStorage.Get(constraint.BodyA, &BodyColumns::MassCenter);
-        const glm::vec2 massCenterB = bodyStorage.Get(constraint.BodyB, &BodyColumns::MassCenter);
+        const glm::vec2 massCenterA = bodyA[&BodyColumns::MassCenter];
+        const glm::vec2 massCenterB = bodyB[&BodyColumns::MassCenter];
 
         for (uint32_t i = 0; i < contact.Manifold.PointCount; i++)
         {
@@ -54,6 +62,7 @@ void ContactSolver::SolveContacts(
             const float sep = contact.Manifold.Points[i].Separation;
             point.DesiredNormalVelocity =
                 sep > 0.0f ? -sep / deltaTime : m_Beta / deltaTime * std::max(0.0f, -sep - m_Slop);
+
             const glm::vec2 impulse = contact.Manifold.Points[i].NormalImpulse * constraint.Normal +
                                       contact.Manifold.Points[i].TangentialImpulse * constraint.Tangent;
             const float angularImpulseA = contact.Manifold.Points[i].NormalImpulse * point.NormalLeverA +
@@ -61,12 +70,10 @@ void ContactSolver::SolveContacts(
             const float angularImpulseB = contact.Manifold.Points[i].NormalImpulse * point.NormalLeverB +
                                           contact.Manifold.Points[i].TangentialImpulse * point.TangentialLeverB;
 
-            bodyStorage.Get(constraint.BodyA, &BodyColumns::Velocity) -= constraint.InvMassA * impulse;
-            bodyStorage.Get(constraint.BodyA, &BodyColumns::AngularVelocity) -=
-                constraint.InvInertiaA * angularImpulseA;
-            bodyStorage.Get(constraint.BodyB, &BodyColumns::Velocity) += constraint.InvMassB * impulse;
-            bodyStorage.Get(constraint.BodyB, &BodyColumns::AngularVelocity) +=
-                constraint.InvInertiaB * angularImpulseB;
+            bodies.Velocity.Data[constraint.IndexA] -= constraint.InvMassA * impulse;
+            bodies.AngularVelocity.Data[constraint.IndexA] -= constraint.InvInertiaA * angularImpulseA;
+            bodies.Velocity.Data[constraint.IndexB] += constraint.InvMassB * impulse;
+            bodies.AngularVelocity.Data[constraint.IndexB] += constraint.InvInertiaB * angularImpulseB;
         }
     }
 
@@ -74,10 +81,10 @@ void ContactSolver::SolveContacts(
     {
         for (ContactConstraint& constraint : m_Constraints)
         {
-            glm::vec2& vA = bodyStorage.Get(constraint.BodyA, &BodyColumns::Velocity);
-            float& wA = bodyStorage.Get(constraint.BodyA, &BodyColumns::AngularVelocity);
-            glm::vec2& vB = bodyStorage.Get(constraint.BodyB, &BodyColumns::Velocity);
-            float& wB = bodyStorage.Get(constraint.BodyB, &BodyColumns::AngularVelocity);
+            glm::vec2& vA = bodies.Velocity.Data[constraint.IndexA];
+            float& wA = bodies.AngularVelocity.Data[constraint.IndexA];
+            glm::vec2& vB = bodies.Velocity.Data[constraint.IndexB];
+            float& wB = bodies.AngularVelocity.Data[constraint.IndexB];
 
             ContactManifold& manifold = constraint.Source->Manifold;
 

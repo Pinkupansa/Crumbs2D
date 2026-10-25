@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <cstdint>
+#include <type_traits>
 #include <vector>
 
 namespace Crumbs2D
@@ -14,16 +15,30 @@ template <typename T> struct Column
     T DefaultValue;
 };
 
-// HandleTable uses a type which must respect the ColumnSet concept
 template <typename C>
-concept ColumnSet = requires(C& columns) {
-    columns.ForEachColumn([](auto&) {}); // verifies that this line of code compiles
-};
+concept ColumnSet = requires(C& columns) { columns.ForEachColumn([](auto&) {}); };
 
 struct Id
 {
     uint32_t Handle;
     uint32_t Generation;
+};
+
+// A resolved row: one handle lookup, then direct column access. Constness follows TColumns.
+// Invalidated by any Add or Remove on the same table.
+template <typename TColumns> class RowView
+{
+public:
+    RowView(TColumns& columns, uint32_t index) : m_Columns(columns), m_Index(index) {}
+
+    template <typename T> auto& operator[](Column<T> std::remove_const_t<TColumns>::* column) const
+    { return (m_Columns.*column).Data[m_Index]; }
+
+    uint32_t Index() const { return m_Index; }
+
+private:
+    TColumns& m_Columns;
+    uint32_t m_Index;
 };
 
 template <ColumnSet TColumns> class HandleTable
@@ -56,10 +71,9 @@ public:
 
     void Remove(Id id)
     {
-        const uint32_t index = GetIndex(id);
+        const uint32_t index = IndexOf(id);
         const uint32_t last = m_Count - 1;
 
-        // Swap and pop
         if (index != last)
         {
             Columns.ForEachColumn([&](auto& column) { column.Data[index] = column.Data[last]; });
@@ -79,38 +93,45 @@ public:
 
     uint32_t Count() const { return m_Count; }
 
+    uint32_t IndexOf(Id id) const
+    {
+        assert(IsValid(id) && "Invalid handle: removed or recycled");
+        return m_HandleToIndex[id.Handle];
+    }
+
+    RowView<TColumns> Row(Id id) { return {Columns, IndexOf(id)}; }
+    RowView<const TColumns> Row(Id id) const { return {Columns, IndexOf(id)}; }
+    RowView<TColumns> RowAt(uint32_t index) { return {Columns, index}; }
+    RowView<const TColumns> RowAt(uint32_t index) const { return {Columns, index}; }
+
     template <typename T> T& Get(Id id, Column<T> TColumns::* column)
     {
-        const uint32_t index = GetIndex(id);
+        const uint32_t index = IndexOf(id);
         assert(index < (Columns.*column).Data.size() && "Desynchronized column");
         return (Columns.*column).Data[index];
     }
 
     template <typename T> const T& Get(Id id, Column<T> TColumns::* column) const
     {
-        const uint32_t index = GetIndex(id);
+        const uint32_t index = IndexOf(id);
         assert(index < (Columns.*column).Data.size() && "Desynchronized column");
         return (Columns.*column).Data[index];
     }
+
     Id IdAt(uint32_t index) const
     {
-        assert(index < m_Count && "Position hors limites");
+        assert(index < m_Count && "Index out of range");
         const uint32_t handle = m_IndexToHandle[index];
         return {handle, m_Generations[handle]};
     }
+
     Id IdOfHandle(uint32_t handle) const
     {
-        assert(handle < m_Generations.size() && "Handle hors limites");
+        assert(handle < m_Generations.size() && "Handle out of range");
         return {handle, m_Generations[handle]};
     }
 
 private:
-    uint32_t GetIndex(Id id) const
-    {
-        assert(IsValid(id) && "Handle invalide : élément supprimé ou recyclé");
-        return m_HandleToIndex[id.Handle];
-    }
-
     uint32_t m_Count = 0;
 
     std::vector<uint32_t> m_FreeHandles;

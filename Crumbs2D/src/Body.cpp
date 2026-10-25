@@ -3,199 +3,103 @@
 #include "ColliderStorage.h"
 #include "CrumbsMath.h"
 #include "World.h"
-#include "glm/geometric.hpp"
-#include "BroadPhase.h"
+#include "WorldWrites.h"
 #include <cassert>
+#include <utility>
 
 namespace Crumbs2D
 {
-template <typename T> T& Body::Value(Column<T> BodyColumns::* column) const
+template <typename T> const T& Body::Value(Column<T> BodyColumns::* column) const
 {
-    assert(m_World != nullptr && "Body is not attached to a world !");
+    assert(m_World != nullptr && "Body is not attached to a world");
     return m_World->m_Bodies->Get({m_Handle, m_Generation}, column);
-}
-
-void Body::RecalculateMassData() const
-{
-
-    float totalArea = 0;
-    glm::vec2 weightedCenter = {0.0f, 0.0f};
-
-    for (const Collider& coll : GetColliders())
-    {
-        const float area = ColliderGeometry::ComputeArea(coll.GetGeometry());
-        totalArea += area;
-        weightedCenter += area * coll.GetLocalCenter();
-    }
-
-    if (totalArea == 0)
-    {
-        Value(&BodyColumns::MassCenter) = Value(&BodyColumns::Position);
-        Value(&BodyColumns::InverseInertia) = 0;
-        Value(&BodyColumns::MassCenterLocal) = glm::vec2(0);
-        return;
-    }
-
-    const glm::vec2 massCenter = weightedCenter / totalArea;
-
-    float density = GetMass() / totalArea;
-    float totalInertia = 0;
-    for (const Collider& coll : GetColliders())
-    {
-        const ColliderGeometry& geometry = coll.GetGeometry();
-        float colliderMass = density * ColliderGeometry::ComputeArea(geometry);
-
-        const glm::vec2 offset = coll.GetLocalCenter() - massCenter;
-        totalInertia += density * ColliderGeometry::ComputeUnitInertia(geometry) // autour de son propre centre
-                        + colliderMass * glm::dot(offset, offset);               // décalage (Huygens)
-    }
-
-    Value(&BodyColumns::MassCenterLocal) = massCenter;
-    Value(&BodyColumns::MassCenter) = Value(&BodyColumns::Position) + Rotate(massCenter, Value(&BodyColumns::Rotation));
-    Value(&BodyColumns::InverseInertia) = (!IsStatic() && totalInertia > 0.0f) ? 1.0f / totalInertia : 0.0f;
-}
-
-void Body::RefreshColliders() const
-{
-    for (const Collider& collider : GetColliders())
-    {
-        collider.RefreshWorldPlacement();
-        m_World->m_BroadPhase->MoveProxy(
-            m_World->m_Colliders->Get({collider.m_Handle, collider.m_Generation}, &ColliderColumns::Proxy),
-            collider.GetAABB()
-        );
-    }
 }
 
 bool Body::IsValid() const { return m_World != nullptr && m_World->IsValid(*this); }
 
-void Body::SetVelocity(glm::vec2 velocity) const { Value(&BodyColumns::Velocity) = velocity; }
-glm::vec2 Body::GetVelocity() const { return Value(&BodyColumns::Velocity); }
-
 void Body::SetPosition(glm::vec2 position) const
-{
-    Value(&BodyColumns::Position) = position;
-    Value(&BodyColumns::MassCenter) =
-        position + Rotate(Value(&BodyColumns::MassCenterLocal), Value(&BodyColumns::Rotation));
-    RefreshColliders();
-}
+{ m_World->SetBodyValue<&BodyColumns::Position>({m_Handle, m_Generation}, position); }
 glm::vec2 Body::GetPosition() const { return Value(&BodyColumns::Position); }
 
-void Body::SetAngularVelocity(float angularVelocity) const { Value(&BodyColumns::AngularVelocity) = angularVelocity; }
-float Body::GetAngularVelocity() const { return Value(&BodyColumns::AngularVelocity); }
-
 void Body::SetRotation(float rotation) const
-{
-    Value(&BodyColumns::Rotation) = rotation;
-    Value(&BodyColumns::MassCenter) =
-        Value(&BodyColumns::Position) + Rotate(Value(&BodyColumns::MassCenterLocal), Value(&BodyColumns::Rotation));
-    RefreshColliders();
-}
+{ m_World->SetBodyValue<&BodyColumns::Rotation>({m_Handle, m_Generation}, rotation); }
 float Body::GetRotation() const { return Value(&BodyColumns::Rotation); }
 
-void Body::SetMass(float mass) const
+Transform Body::GetTransform() const
 {
-    // Une masse nulle ou négative donne une masse inverse nulle : body immobile.
-    Value(&BodyColumns::InverseMass) = mass > 0.0f ? 1.0f / mass : 0.0f;
-    RecalculateMassData();
+    const auto row = std::as_const(*m_World->m_Bodies).Row({m_Handle, m_Generation});
+    return {row[&BodyColumns::Position], row[&BodyColumns::Rotation]};
 }
 
-float Body::GetMass() const
-{
-    const float inverseMass = Value(&BodyColumns::InverseMass);
-    return inverseMass > 0.0f ? 1.0f / inverseMass : 0.0f;
-}
+void Body::SetVelocity(glm::vec2 velocity) const
+{ m_World->SetBodyValue<&BodyColumns::Velocity>({m_Handle, m_Generation}, velocity); }
+glm::vec2 Body::GetVelocity() const { return Value(&BodyColumns::Velocity); }
 
-Transform Body::GetTransform() const { return {GetPosition(), GetRotation()}; }
+void Body::SetAngularVelocity(float angularVelocity) const
+{ m_World->SetBodyValue<&BodyColumns::AngularVelocity>({m_Handle, m_Generation}, angularVelocity); }
+float Body::GetAngularVelocity() const { return Value(&BodyColumns::AngularVelocity); }
+
+void Body::SetMass(float mass) const { m_World->SetBodyValue<&BodyColumns::Mass>({m_Handle, m_Generation}, mass); }
+float Body::GetMass() const { return Value(&BodyColumns::Mass); }
 
 void Body::SetIsStatic(bool isStatic) const
-{
-    Value(&BodyColumns::IsStatic) = isStatic;
-    Value(&BodyColumns::InverseInertia) = 0;
-    Value(&BodyColumns::InverseMass) = 0;
-}
+{ m_World->SetBodyValue<&BodyColumns::IsStatic>({m_Handle, m_Generation}, static_cast<uint8_t>(isStatic ? 1 : 0)); }
 bool Body::IsStatic() const { return Value(&BodyColumns::IsStatic) != 0; }
 
-void Body::AddForce(glm::vec2 force) const { Value(&BodyColumns::Force) += force; }
-void Body::AddTorque(float torque) const { Value(&BodyColumns::Torque) += torque; }
+void Body::AddForce(glm::vec2 force) const
+{ m_World->SetBodyValue<&BodyColumns::Force>({m_Handle, m_Generation}, Value(&BodyColumns::Force) + force); }
+
+void Body::AddTorque(float torque) const
+{ m_World->SetBodyValue<&BodyColumns::Torque>({m_Handle, m_Generation}, Value(&BodyColumns::Torque) + torque); }
 
 void Body::AddImpulse(glm::vec2 impulse) const
-{ Value(&BodyColumns::Velocity) += impulse * Value(&BodyColumns::InverseMass); }
+{
+    m_World->EnsureSynchronized();
+    m_World->SetBodyValue<&BodyColumns::Velocity>(
+        {m_Handle, m_Generation}, Value(&BodyColumns::Velocity) + impulse * Value(&BodyColumns::InverseMass)
+    );
+}
 
 void Body::AddAngularImpulse(float impulse) const
-{ Value(&BodyColumns::AngularVelocity) += impulse * Value(&BodyColumns::InverseInertia); }
+{
+    m_World->EnsureSynchronized();
+    m_World->SetBodyValue<&BodyColumns::AngularVelocity>(
+        {m_Handle, m_Generation}, Value(&BodyColumns::AngularVelocity) + impulse * Value(&BodyColumns::InverseInertia)
+    );
+}
 
 void Body::AddForceAtPoint(glm::vec2 force, glm::vec2 point) const
 {
-    const glm::vec2 leverArm = point - Value(&BodyColumns::MassCenter);
-    AddTorque(Cross(leverArm, force));
+    m_World->EnsureSynchronized();
+    AddTorque(Cross(point - Value(&BodyColumns::MassCenter), force));
     AddForce(force);
 }
 
 void Body::AddImpulseAtPoint(glm::vec2 impulse, glm::vec2 point) const
 {
-    const glm::vec2 leverArm = point - Value(&BodyColumns::MassCenter);
-    AddAngularImpulse(Cross(leverArm, impulse));
+    m_World->EnsureSynchronized();
+    AddAngularImpulse(Cross(point - Value(&BodyColumns::MassCenter), impulse));
     AddImpulse(impulse);
+}
+
+Collider Body::AddCollider(const ColliderGeometry& geometry, const Transform& localTransform) const
+{ return m_World->AllocateCollider({m_Handle, m_Generation}, geometry, localTransform); }
+
+void Body::DeleteCollider(const Collider& collider) const
+{
+    const Id colliderId = {collider.m_Handle, collider.m_Generation};
+    assert(
+        m_World->m_Colliders->Get(colliderId, &ColliderColumns::Body).Handle == m_Handle &&
+        "Collider belongs to another body"
+    );
+    m_World->RequestDestroyCollider(colliderId);
 }
 
 uint32_t Body::GetColliderCount() const { return Value(&BodyColumns::ColliderCount); }
 
-Collider Body::AddCollider(const ColliderGeometry& geometry, const Transform& localTransform) const
-{
-    ColliderStorage& colliders = *m_World->m_Colliders;
-
-    const Id colliderId = colliders.Add();
-    colliders.Get(colliderId, &ColliderColumns::Body) = {m_Handle, m_Generation};
-    colliders.Get(colliderId, &ColliderColumns::Geometry) = geometry;
-
-    Id& first = Value(&BodyColumns::FirstCollider);
-    colliders.Get(colliderId, &ColliderColumns::PrevCollider) = {INVALID_HANDLE, 0};
-    colliders.Get(colliderId, &ColliderColumns::NextCollider) = first;
-    if (first.Handle != INVALID_HANDLE)
-        colliders.Get(first, &ColliderColumns::PrevCollider) = colliderId;
-    first = colliderId;
-    Value(&BodyColumns::ColliderCount)++;
-
-    colliders.Get(colliderId, &ColliderColumns::LocalTransform) = localTransform;
-
-    const Collider collider(colliderId.Handle, colliderId.Generation, m_World);
-    collider.RefreshWorldPlacement();
-    colliders.Get(colliderId, &ColliderColumns::Proxy) =
-        m_World->m_BroadPhase->AddProxy(colliders.Get(colliderId, &ColliderColumns::AABB), colliderId.Handle);
-    RecalculateMassData();
-    return Collider(colliderId.Handle, colliderId.Generation, m_World);
-}
-
-void Body::DeleteCollider(const Collider& collider) const
-{
-    ColliderStorage& colliders = *m_World->m_Colliders;
-    const Id colliderId = {collider.m_Handle, collider.m_Generation};
-
-    assert(
-        colliders.Get(colliderId, &ColliderColumns::Body).Handle == m_Handle && "Ce collider appartient à un autre body"
-    );
-
-    const Id prev = colliders.Get(colliderId, &ColliderColumns::PrevCollider);
-    const Id next = colliders.Get(colliderId, &ColliderColumns::NextCollider);
-
-    if (prev.Handle == INVALID_HANDLE)
-        Value(&BodyColumns::FirstCollider) = next; // c'était le premier de la chaîne
-    else
-        colliders.Get(prev, &ColliderColumns::NextCollider) = next;
-
-    if (next.Handle != INVALID_HANDLE)
-        colliders.Get(next, &ColliderColumns::PrevCollider) = prev;
-
-    Value(&BodyColumns::ColliderCount)--;
-    colliders.Remove(colliderId);
-
-    RecalculateMassData();
-}
-
 Collider Body::GetCollider(uint32_t colliderIndex) const
 {
-    assert(colliderIndex < Value(&BodyColumns::ColliderCount) && "Index de collider hors limites");
+    assert(colliderIndex < Value(&BodyColumns::ColliderCount) && "Collider index out of range");
 
     const ColliderStorage& colliders = *m_World->m_Colliders;
     Id current = Value(&BodyColumns::FirstCollider);

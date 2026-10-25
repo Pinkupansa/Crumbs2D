@@ -19,8 +19,8 @@ struct ContactConstraintPoint
 struct ContactConstraint
 {
     Contact* Source;
-    Id BodyA;
-    Id BodyB;
+    uint32_t IndexA;
+    uint32_t IndexB;
     float InvMassA;
     float InvMassB;
     float InvInertiaA;

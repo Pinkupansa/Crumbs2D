@@ -1,7 +1,7 @@
 #include "BroadPhase.h"
 #include "ColliderStorage.h"
 #include "Constants.h"
-#include <iostream>
+#include <cassert>
 #include "Profiler.h"
 namespace Crumbs2D
 {
@@ -53,7 +53,8 @@ BroadPhase::FindPairs(const BodyStorage& bodyStorage, const ColliderStorage& col
                 return;
 
             const Id idB = colliderStorage.IdOfHandle(handleB);
-            const Id bodyB = colliderStorage.Get(idB, &ColliderColumns::Body);
+            const auto colliderB = colliderStorage.Row(idB);
+            const Id bodyB = colliderB[&ColliderColumns::Body];
 
             if (bodyB.Handle == bodyA.Handle)
                 return;
@@ -62,7 +63,7 @@ BroadPhase::FindPairs(const BodyStorage& bodyStorage, const ColliderStorage& col
 
             if (AABB::TestOverlap(
                     AABB::Fatten(aabbA, SPECULATIVE_DISTANCE),
-                    AABB::Fatten(colliderStorage.Get(idB, &ColliderColumns::AABB), SPECULATIVE_DISTANCE)
+                    AABB::Fatten(colliderB[&ColliderColumns::AABB], SPECULATIVE_DISTANCE)
                 ))
             {
                 m_Pairs.push_back(ColliderPair(idA, idB));
@@ -74,8 +75,12 @@ BroadPhase::FindPairs(const BodyStorage& bodyStorage, const ColliderStorage& col
 }
 void BroadPhase::UpdateProxies(const ColliderStorage& colliderStorage)
 {
+    PROFILE_FUNCTION();
     const ColliderColumns& colliders = colliderStorage.Columns;
     for (uint32_t i = 0; i < colliderStorage.Count(); i++)
+    {
+        assert(colliders.Proxy.Data[i] != UINT32_MAX && "Collider without a leaf: SynchronizeDirty must run first");
         m_Tree.MoveProxy(colliders.AABB.Data[i], colliders.Proxy.Data[i]);
+    }
 }
 } // namespace Crumbs2D

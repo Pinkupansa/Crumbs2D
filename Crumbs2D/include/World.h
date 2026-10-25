@@ -10,6 +10,9 @@ namespace Crumbs2D
 {
 struct BodyStorage;
 struct ColliderStorage;
+struct Id;
+struct ColliderColumns;
+template <typename TColumns> class RowView;
 class BroadPhase;
 class NarrowPhase;
 class ContactSolver;
@@ -25,7 +28,6 @@ struct SolverSettings
     float Slop = 0.005f;
 };
 
-// World.h, avant la classe World
 struct ContactInfo
 {
     Collider First;
@@ -54,16 +56,41 @@ private:
     Scope<BroadPhase> m_BroadPhase;
     Scope<NarrowPhase> m_NarrowPhase;
     Scope<ContactSolver> m_ContactSolver;
-
     SolverSettings m_SolverSettings;
+
+    std::vector<Id> m_DirtyBodies;
+    std::vector<Id> m_DirtyColliders;
+    std::vector<Id> m_PendingBodies;
+    std::vector<Id> m_PendingColliders;
+    std::vector<Id> m_BodiesToDestroy;
+    std::vector<Id> m_CollidersToDestroy;
 
 private:
     friend class Body;
     friend class Collider;
     friend class BroadPhase;
+
     bool IsValid(const Body& body) const;
     bool IsValid(const Collider& collider) const;
+
+    // The only way for handles to write: defined in WorldWrites.h, they mark what the write invalidates.
+    template <auto Member, typename T> void SetBodyValue(Id body, const T& value);
+    template <auto Member, typename T> void SetColliderValue(Id collider, const T& value);
+
+    Collider AllocateCollider(Id body, const ColliderGeometry& geometry, const Transform& localTransform);
+    void RequestDestroyBody(Id body);
+    void RequestDestroyCollider(Id collider);
+    void EnsureSynchronized();
+
+    void MarkBodyDirty(Id body, uint8_t flags);
+    void MarkColliderDirty(Id collider, uint8_t flags);
+
+    void ApplyPendingChanges();
+    void SynchronizeDirty();
     void SynchronizeColliders();
+    void RefreshColliderPlacement(RowView<ColliderColumns> collider);
+    void RecalculateMassData(Id body);
+    template <typename F> void ForEachColliderOf(Id body, F&& f) const;
 
 public:
     Crumbs2D::PhysicsSettings PhysicsSettings;
@@ -73,6 +100,9 @@ public:
     Body CreateBody();
     void DeleteBody(const Body& body);
     const SolverSettings& GetSolverSettings() const { return m_SolverSettings; }
+
+    bool ValidateInvariants() const;
+
     std::vector<std::pair<Collider, Collider>> GetCandidatePairs();
     void ForEachBroadPhaseNode(const std::function<void(const AABB&, uint16_t height, bool isLeaf)>& f) const;
     bool ValidateBroadPhase() const;

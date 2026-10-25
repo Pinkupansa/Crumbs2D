@@ -24,12 +24,10 @@ private:
     friend class Body;
     Collider(uint32_t handle, uint32_t generation, World* world)
         : m_World(world), m_Handle(handle), m_Generation(generation)
-    { RefreshWorldPlacement(); }
+    {
+    }
 
-    template <typename T> T& Value(Column<T> ColliderColumns::* column) const;
-
-    void RefreshWorldPlacement() const;
-    void OnLocalTransformChanged() const;
+    template <typename T> const T& Value(Column<T> ColliderColumns::* column) const;
 
 public:
     Collider() = default;
@@ -38,24 +36,22 @@ public:
 
     Transform GetLocalTransform() const;
     void SetLocalTransform(const Transform& localTransform) const;
-    Transform GetWorldTransform() const;
-    // Collider.h
     glm::vec2 GetLocalPosition() const;
     void SetLocalPosition(glm::vec2 position) const;
-
     float GetLocalRotation() const;
     void SetLocalRotation(float rotation) const;
 
+    // Center of the collider in its body's frame.
+    glm::vec2 GetLocalCenter() const;
+
+    Transform GetWorldTransform() const;
     glm::vec2 GetWorldPosition() const;
     float GetWorldRotation() const;
-
-    glm::vec2 GetLocalCenter() const; // position of center in body frame
+    AABB GetAABB() const;
 
     float GetFrictionCoefficient() const;
     void SetFrictionCoefficient(float frictionCoefficient) const;
     const ColliderGeometry& GetGeometry() const;
-
-    const AABB GetAABB() const;
 
     bool operator==(const Collider&) const = default;
 };

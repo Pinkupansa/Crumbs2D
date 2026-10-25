@@ -1,11 +1,12 @@
 #include "Integrator.h"
 #include "BodyStorage.h"
 #include "World.h"
-
+#include "Profiler.h"
 namespace Crumbs2D::Integrator
 {
 void IntegrateVelocities(BodyStorage& bodies, const PhysicsSettings& settings, float dt)
 {
+    PROFILE_FUNCTION();
     BodyColumns& c = bodies.Columns;
 
     for (uint32_t i = 0; i < bodies.Count(); i++)
@@ -24,6 +25,8 @@ void IntegrateVelocities(BodyStorage& bodies, const PhysicsSettings& settings, f
 
 void IntegratePositions(BodyStorage& bodies, float dt)
 {
+    PROFILE_FUNCTION();
+
     BodyColumns& c = bodies.Columns;
     for (uint32_t i = 0; i < bodies.Count(); i++)
     {
