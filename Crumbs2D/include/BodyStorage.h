@@ -19,8 +19,8 @@ struct BodyColumns
     Column<float> Rotation{{}, 0.0f};
     Column<glm::vec2> Force{{}, glm::vec2(0.0f)};
     Column<float> Torque{{}, 0.0f};
-    Column<float> LinearDrag{{}, 1.0f};
-    Column<float> AngularDrag{{}, 1.0f};
+    Column<float> LinearDrag{{}, 0.0f};
+    Column<float> AngularDrag{{}, 0.0f};
     Column<float> Mass{{}, 1.0f};
     Column<uint8_t> IsStatic{{}, 0};
 

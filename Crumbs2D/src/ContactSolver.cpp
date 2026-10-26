@@ -9,7 +9,11 @@
 namespace Crumbs2D
 {
 void ContactSolver::SolveContacts(
-    BodyStorage& bodyStorage, ColliderStorage& colliderStorage, std::vector<Contact>& contacts, float deltaTime
+    BodyStorage& bodyStorage,
+    ColliderStorage& colliderStorage,
+    std::vector<Contact>& contacts,
+    float deltaTime,
+    float restitutionThreshold
 )
 {
     PROFILE_FUNCTION();
@@ -38,6 +42,8 @@ void ContactSolver::SolveContacts(
         constraint.FrictionCoefficient = std::sqrt(
             colliderA[&ColliderColumns::FrictionCoefficient] * colliderB[&ColliderColumns::FrictionCoefficient]
         );
+        constraint.PairBounciness =
+            std::max(colliderA[&ColliderColumns::Bounciness], colliderB[&ColliderColumns::Bounciness]);
 
         const glm::vec2 massCenterA = bodyA[&BodyColumns::MassCenter];
         const glm::vec2 massCenterB = bodyB[&BodyColumns::MassCenter];
@@ -62,6 +68,13 @@ void ContactSolver::SolveContacts(
             const float sep = contact.Manifold.Points[i].Separation;
             point.DesiredNormalVelocity =
                 sep > 0.0f ? -sep / deltaTime : m_Beta / deltaTime * std::max(0.0f, -sep - m_Slop);
+
+            point.ImpactVelocity =
+                glm::dot(
+                    constraint.Normal, bodies.Velocity.Data[constraint.IndexB] - bodies.Velocity.Data[constraint.IndexA]
+                ) +
+                bodies.AngularVelocity.Data[constraint.IndexB] * point.NormalLeverB -
+                bodies.AngularVelocity.Data[constraint.IndexA] * point.NormalLeverA;
 
             const glm::vec2 impulse = contact.Manifold.Points[i].NormalImpulse * constraint.Normal +
                                       contact.Manifold.Points[i].TangentialImpulse * constraint.Tangent;
@@ -121,6 +134,37 @@ void ContactSolver::SolveContacts(
                 vB = vB + constraint.InvMassB * normalIncrement * constraint.Normal;
                 wB = wB + constraint.InvInertiaB * normalIncrement * point.NormalLeverB;
             }
+        }
+    }
+
+    for (const ContactConstraint& constraint : m_Constraints)
+    {
+        if (constraint.PairBounciness == 0.0f)
+            continue;
+        ContactManifold& manifold = constraint.Source->Manifold;
+        glm::vec2& vA = bodies.Velocity.Data[constraint.IndexA];
+        float& wA = bodies.AngularVelocity.Data[constraint.IndexA];
+        glm::vec2& vB = bodies.Velocity.Data[constraint.IndexB];
+        float& wB = bodies.AngularVelocity.Data[constraint.IndexB];
+
+        for (uint32_t i = 0; i < manifold.PointCount; i++)
+        {
+            const ContactConstraintPoint& point = constraint.Points[i];
+
+            if (point.ImpactVelocity > -restitutionThreshold || manifold.Points[i].NormalImpulse == 0.0f)
+                continue;
+            const float normalVelocity =
+                glm::dot(constraint.Normal, vB - vA) + wB * point.NormalLeverB - wA * point.NormalLeverA;
+            const float targetVelocity = -constraint.PairBounciness * point.ImpactVelocity;
+            float increment = point.NormalMass * (targetVelocity - normalVelocity);
+            const float newNormalImpulse = std::max(manifold.Points[i].NormalImpulse + increment, 0.0f);
+            increment = newNormalImpulse - manifold.Points[i].NormalImpulse;
+            manifold.Points[i].NormalImpulse = newNormalImpulse;
+
+            vA -= constraint.InvMassA * increment * constraint.Normal;
+            wA -= constraint.InvInertiaA * increment * point.NormalLeverA;
+            vB += constraint.InvMassB * increment * constraint.Normal;
+            wB += constraint.InvInertiaB * increment * point.NormalLeverB;
         }
     }
 }

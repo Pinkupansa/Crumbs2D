@@ -311,7 +311,9 @@ void World::Step()
     SynchronizeDirty();
 
     Integrator::IntegrateVelocities(*m_Bodies, PhysicsSettings, dt);
-    m_ContactSolver->SolveContacts(*m_Bodies, *m_Colliders, m_NarrowPhase->GetContacts(), dt);
+    m_ContactSolver->SolveContacts(
+        *m_Bodies, *m_Colliders, m_NarrowPhase->GetContacts(), dt, PhysicsSettings.RestitutionThreshold
+    );
     Integrator::IntegratePositions(*m_Bodies, dt);
 
     SynchronizeColliders();

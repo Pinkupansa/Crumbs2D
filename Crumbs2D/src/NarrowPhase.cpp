@@ -107,32 +107,48 @@ static ContactManifold FindBoxBox(
     };
     const glm::vec2 secondNormals[4] = {-secondUp, secondRight, secondUp, -secondRight};
 
-    auto findMaxSeparation =
-        [](const glm::vec2* vertices, const glm::vec2* normals, const glm::vec2* otherVertices, int& bestFace) {
-            float maxSeparation = -std::numeric_limits<float>::max();
-            for (int face = 0; face < 4; face++)
+    auto supportSeparation = [](glm::vec2 normal,
+                                glm::vec2 faceVertex,
+                                glm::vec2 otherCenter,
+                                glm::vec2 otherRight,
+                                glm::vec2 otherUp,
+                                glm::vec2 otherHalf) {
+        const glm::vec2 support = otherCenter - std::copysign(otherHalf.x, glm::dot(normal, otherRight)) * otherRight -
+                                  std::copysign(otherHalf.y, glm::dot(normal, otherUp)) * otherUp;
+        return glm::dot(normal, support - faceVertex);
+    };
+
+    auto findMaxSeparation = [&](const glm::vec2* vertices,
+                                 const glm::vec2* normals,
+                                 glm::vec2 otherCenter,
+                                 glm::vec2 otherRight,
+                                 glm::vec2 otherUp,
+                                 glm::vec2 otherHalf,
+                                 int& bestFace) {
+        float maxSeparation = -std::numeric_limits<float>::max();
+        for (int face = 0; face < 4; face++)
+        {
+            const float separation =
+                supportSeparation(normals[face], vertices[face], otherCenter, otherRight, otherUp, otherHalf);
+            if (separation > maxSeparation)
             {
-                float faceSeparation = std::numeric_limits<float>::max();
-                for (int vertex = 0; vertex < 4; vertex++)
-                    faceSeparation =
-                        std::min(faceSeparation, glm::dot(normals[face], otherVertices[vertex] - vertices[face]));
-
-                if (faceSeparation > maxSeparation)
-                {
-                    maxSeparation = faceSeparation;
-                    bestFace = face;
-                }
+                maxSeparation = separation;
+                bestFace = face;
             }
-            return maxSeparation;
-        };
-
+        }
+        return maxSeparation;
+    };
     int firstFace = 0;
-    const float firstSeparation = findMaxSeparation(firstVertices, firstNormals, secondVertices, firstFace);
+    int secondFace = 0;
+    const float firstSeparation =
+        findMaxSeparation(firstVertices, firstNormals, secondCenter, secondRight, secondUp, secondHalf, firstFace);
+
     if (firstSeparation > SPECULATIVE_DISTANCE)
         return manifold;
 
-    int secondFace = 0;
-    const float secondSeparation = findMaxSeparation(secondVertices, secondNormals, firstVertices, secondFace);
+    const float secondSeparation = findMaxSeparation(
+        secondVertices, secondNormals, {0.0f, 0.0f}, {1.0f, 0.0f}, {0.0f, 1.0f}, firstHalf, secondFace
+    );
     if (secondSeparation > SPECULATIVE_DISTANCE)
         return manifold;
 
@@ -249,6 +265,7 @@ const std::vector<Contact>&
 NarrowPhase::FindContacts(const ColliderStorage& colliderStorage, const std::vector<ColliderPair>& candidates)
 {
     PROFILE_FUNCTION();
+    PROFILE_VALUE("Candidate pairs", candidates.size());
     m_CurrentSwapchainIndex = 1 - m_CurrentSwapchainIndex;
 
     std::vector<Contact>& currentBuffer = m_ContactBufferSwapchain[m_CurrentSwapchainIndex];
@@ -259,10 +276,15 @@ NarrowPhase::FindContacts(const ColliderStorage& colliderStorage, const std::vec
     const std::vector<Contact>& oldBuffer = m_ContactBufferSwapchain[1 - m_CurrentSwapchainIndex];
     const std::unordered_map<uint64_t, uint32_t>& oldCache = m_ContactCacheSwapchain[1 - m_CurrentSwapchainIndex];
 
+    int afterPrefilter = 0;
     for (const ColliderPair& pair : candidates)
     {
+
         const auto first = colliderStorage.Row(pair.First());
         const auto second = colliderStorage.Row(pair.Second());
+        if (!AABB::TestOverlap(first[&ColliderColumns::AABB], second[&ColliderColumns::AABB]))
+            continue;
+        afterPrefilter++;
         ContactManifold manifold = FindContact(
             first[&ColliderColumns::Geometry],
             first[&ColliderColumns::WorldTransform],
@@ -290,6 +312,8 @@ NarrowPhase::FindContacts(const ColliderStorage& colliderStorage, const std::vec
             currentBuffer.push_back({pair, manifold});
         }
     }
+    PROFILE_VALUE("After prefilter", afterPrefilter);
+    PROFILE_VALUE("Actual contacts", m_ContactBufferSwapchain[m_CurrentSwapchainIndex].size());
     return m_ContactBufferSwapchain[m_CurrentSwapchainIndex];
 }
 } // namespace Crumbs2D

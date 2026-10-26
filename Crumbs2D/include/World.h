@@ -18,7 +18,10 @@ class NarrowPhase;
 class ContactSolver;
 
 struct PhysicsSettings
-{ glm::vec2 Gravity = {0, 0}; };
+{
+    glm::vec2 Gravity = {0, 0};
+    float RestitutionThreshold = 1.0f;
+};
 
 struct SolverSettings
 {

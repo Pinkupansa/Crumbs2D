@@ -14,11 +14,14 @@ struct ContactConstraintPoint
     float TangentialLeverA;
     float TangentialLeverB;
     float TangentialMass;
+
+    float ImpactVelocity; // velocity before solving
 };
 
 struct ContactConstraint
 {
     Contact* Source;
+    ContactConstraintPoint Points[2];
     uint32_t IndexA;
     uint32_t IndexB;
     float InvMassA;
@@ -28,7 +31,7 @@ struct ContactConstraint
     glm::vec2 Normal;
     glm::vec2 Tangent;
     float FrictionCoefficient;
-    ContactConstraintPoint Points[2];
+    float PairBounciness;
 };
 class ContactSolver
 {
@@ -45,7 +48,11 @@ public:
     {
     }
     void SolveContacts(
-        BodyStorage& bodyStorage, ColliderStorage& colliderStorage, std::vector<Contact>& contacts, float deltaTime
+        BodyStorage& bodyStorage,
+        ColliderStorage& colliderStorage,
+        std::vector<Contact>& contacts,
+        float deltaTime,
+        float restitutionThreshold = 1.0f
     );
 };
 } // namespace Crumbs2D

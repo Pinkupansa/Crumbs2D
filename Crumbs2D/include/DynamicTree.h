@@ -66,6 +66,8 @@ public:
 
     uint32_t GetUserId(uint32_t leaf) const;
     const AABB& GetFatBound(uint32_t leaf) const;
+    bool IsValidProxy(uint32_t leaf) const
+    { return leaf < m_NodePool.size() && m_NodePool[leaf].IsLeaf && m_NodePool[leaf].Height != FREE_NODE_HEIGHT; }
 
     template <typename F> void Query(const AABB& query, F&& callback);
 

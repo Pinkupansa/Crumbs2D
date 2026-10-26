@@ -37,6 +37,7 @@ CRUMBS_WRITABLE_COLUMN(&BodyColumns::AngularDrag, 0, 0)
 
 CRUMBS_WRITABLE_COLUMN(&ColliderColumns::LocalTransform, BodyDirty::Mass, ColliderDirty::Placement)
 CRUMBS_WRITABLE_COLUMN(&ColliderColumns::FrictionCoefficient, 0, 0)
+CRUMBS_WRITABLE_COLUMN(&ColliderColumns::Bounciness, 0, 0)
 
 #undef CRUMBS_WRITABLE_COLUMN
 
