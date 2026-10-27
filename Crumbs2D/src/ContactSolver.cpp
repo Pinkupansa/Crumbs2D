@@ -21,6 +21,7 @@ void ContactSolver::SolveContacts(
 
     BodyColumns& bodies = bodyStorage.Columns;
 
+    // PRECOMPUTATION OF CONSTRAINTS
     for (Contact& contact : contacts)
     {
         const auto colliderA = std::as_const(colliderStorage).Row(contact.Colliders.First());
@@ -90,6 +91,7 @@ void ContactSolver::SolveContacts(
         }
     }
 
+    // SOLVING CONTACTS
     for (int it = 0; it < m_IterationNumber; it++)
     {
         for (ContactConstraint& constraint : m_Constraints)
@@ -136,6 +138,8 @@ void ContactSolver::SolveContacts(
             }
         }
     }
+
+    // BOUNCING
 
     for (const ContactConstraint& constraint : m_Constraints)
     {

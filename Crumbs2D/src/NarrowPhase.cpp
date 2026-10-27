@@ -152,7 +152,8 @@ static ContactManifold FindBoxBox(
     if (secondSeparation > SPECULATIVE_DISTANCE)
         return manifold;
 
-    const bool referenceIsSecond = secondSeparation > firstSeparation;
+    const bool referenceIsSecond = secondSeparation > firstSeparation + 0.0001;
+    ;
     const glm::vec2* referenceVertices = referenceIsSecond ? secondVertices : firstVertices;
     const glm::vec2* referenceNormals = referenceIsSecond ? secondNormals : firstNormals;
     const glm::vec2* incidentVertices = referenceIsSecond ? firstVertices : secondVertices;
@@ -266,6 +267,8 @@ NarrowPhase::FindContacts(const ColliderStorage& colliderStorage, const std::vec
 {
     PROFILE_FUNCTION();
     PROFILE_VALUE("Candidate pairs", candidates.size());
+    uint32_t pointCount = 0;
+    uint32_t matchedCount = 0;
     m_CurrentSwapchainIndex = 1 - m_CurrentSwapchainIndex;
 
     std::vector<Contact>& currentBuffer = m_ContactBufferSwapchain[m_CurrentSwapchainIndex];
@@ -282,7 +285,10 @@ NarrowPhase::FindContacts(const ColliderStorage& colliderStorage, const std::vec
 
         const auto first = colliderStorage.Row(pair.First());
         const auto second = colliderStorage.Row(pair.Second());
-        if (!AABB::TestOverlap(first[&ColliderColumns::AABB], second[&ColliderColumns::AABB]))
+        if (!AABB::TestOverlap(
+                AABB::Fatten(first[&ColliderColumns::AABB], SPECULATIVE_DISTANCE),
+                AABB::Fatten(second[&ColliderColumns::AABB], SPECULATIVE_DISTANCE)
+            ))
             continue;
         afterPrefilter++;
         ContactManifold manifold = FindContact(
@@ -296,6 +302,7 @@ NarrowPhase::FindContacts(const ColliderStorage& colliderStorage, const std::vec
         {
             uint64_t key = pair.MakePairKey();
             const auto oldIterator = oldCache.find(key);
+            pointCount += manifold.PointCount;
             if (oldIterator != oldCache.end())
             {
                 const ContactManifold& oldManifold = oldBuffer[oldIterator->second].Manifold;
@@ -303,6 +310,7 @@ NarrowPhase::FindContacts(const ColliderStorage& colliderStorage, const std::vec
                     for (uint32_t j = 0; j < oldManifold.PointCount; j++)
                         if (oldManifold.Points[j].FeatureID == manifold.Points[i].FeatureID)
                         {
+                            matchedCount++;
                             manifold.Points[i].NormalImpulse = oldManifold.Points[j].NormalImpulse;
                             manifold.Points[i].TangentialImpulse = oldManifold.Points[j].TangentialImpulse;
                             break;
@@ -314,6 +322,7 @@ NarrowPhase::FindContacts(const ColliderStorage& colliderStorage, const std::vec
     }
     PROFILE_VALUE("After prefilter", afterPrefilter);
     PROFILE_VALUE("Actual contacts", m_ContactBufferSwapchain[m_CurrentSwapchainIndex].size());
+    PROFILE_VALUE("Warm start match %", pointCount > 0 ? 100.0 * matchedCount / pointCount : 100.0);
     return m_ContactBufferSwapchain[m_CurrentSwapchainIndex];
 }
 } // namespace Crumbs2D

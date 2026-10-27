@@ -21,8 +21,8 @@ struct ColliderColumns
     // Primary state
     Column<ColliderGeometry> Geometry{{}, ColliderGeometry::MakeBox({})};
     Column<Transform> LocalTransform{{}, Transform{}};
-    Column<float> FrictionCoefficient{{}, 0.0f};
-    Column<float> Bounciness{{}, 1.0f};
+    Column<float> FrictionCoefficient{{}, 0.6f};
+    Column<float> Bounciness{{}, 0.0f};
 
     // Derived data
     Column<Transform> WorldTransform{{}, Transform{}};
