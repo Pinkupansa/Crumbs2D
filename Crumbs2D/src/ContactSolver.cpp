@@ -26,7 +26,10 @@ void ContactSolver::SolveContacts(
     {
         const auto colliderA = std::as_const(colliderStorage).Row(contact.Colliders.First());
         const auto colliderB = std::as_const(colliderStorage).Row(contact.Colliders.Second());
-
+        if (colliderA[&ColliderColumns::IsTrigger] || colliderB[&ColliderColumns::IsTrigger])
+        {
+            continue;
+        }
         ContactConstraint& constraint = m_Constraints.emplace_back();
         constraint.Source = &contact;
         constraint.IndexA = bodyStorage.IndexOf(colliderA[&ColliderColumns::Body]);

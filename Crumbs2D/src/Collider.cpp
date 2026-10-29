@@ -70,4 +70,6 @@ void Collider::SetFrictionCoefficient(float frictionCoefficient) const
 
 const ColliderGeometry& Collider::GetGeometry() const { return Value(&ColliderColumns::Geometry); }
 
+void Collider::SetIsTrigger(bool trigger) const
+{ m_World->SetColliderValue<&ColliderColumns::IsTrigger>({m_Handle, m_Generation}, trigger); }
 } // namespace Crumbs2D

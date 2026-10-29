@@ -23,6 +23,7 @@ struct ColliderColumns
     Column<Transform> LocalTransform{{}, Transform{}};
     Column<float> FrictionCoefficient{{}, 0.6f};
     Column<float> Bounciness{{}, 0.0f};
+    Column<uint8_t> IsTrigger{{}, false};
 
     // Derived data
     Column<Transform> WorldTransform{{}, Transform{}};
@@ -47,6 +48,7 @@ struct ColliderColumns
         f(State);
         f(DirtyFlags);
         f(Bounciness);
+        f(IsTrigger);
     }
 };
 

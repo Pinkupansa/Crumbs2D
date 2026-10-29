@@ -52,7 +52,7 @@ public:
     float GetFrictionCoefficient() const;
     void SetFrictionCoefficient(float frictionCoefficient) const;
     const ColliderGeometry& GetGeometry() const;
-
+    void SetIsTrigger(bool trigger) const;
     bool operator==(const Collider&) const = default;
 };
 

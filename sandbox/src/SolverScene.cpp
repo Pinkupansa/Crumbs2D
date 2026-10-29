@@ -128,10 +128,13 @@ Crumbs2D::Body SolverScene::AddCircle(glm::vec2 position, float radius)
 void SolverScene::SpawnAtMouse()
 {
     const glm::vec2 mouse = m_Camera.ScreenToWorld(RLInput::GetMousePosition());
+    Crumbs2D::Body body;
     if (m_SpawnCircles)
-        AddCircle(mouse, 0.4f);
+        body = AddCircle(mouse, 0.4f);
     else
-        AddBox(mouse, {0.5f, 0.5f});
+        body = AddBox(mouse, {0.5f, 0.5f});
+    body.GetCollider(0).SetIsTrigger(m_SpawnTrigger);
+    body.SetIsStatic(m_SpawnStatic);
 }
 
 void SolverScene::OnUpdate(float dt)
@@ -234,8 +237,10 @@ void SolverScene::OnImGuiRender()
     if (ImGui::Button("Pas a pas") && m_Paused)
         m_World.Step();
     ImGui::Checkbox("Afficher les contacts", &m_DrawContacts);
-    ImGui::Checkbox("Ajouter des cercles (sinon des boites)", &m_SpawnCircles);
-
+    ImGui::Text("Propriétés du prochain body");
+    ImGui::Checkbox("Cercle (sinon boite)", &m_SpawnCircles);
+    ImGui::Checkbox("Trigger", &m_SpawnTrigger);
+    ImGui::Checkbox("Static", &m_SpawnStatic);
     ImGui::SeparatorText("Scene (appliquee au reset)");
     const char* presetNames[] = {"Une boite", "Pile", "Pyramide", "Melange"};
     int preset = static_cast<int>(m_Preset);

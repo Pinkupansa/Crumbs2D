@@ -43,6 +43,8 @@ private:
     bool m_Paused = false;
     bool m_DrawContacts = true;
     bool m_SpawnCircles = false;
+    bool m_SpawnTrigger = false;
+    bool m_SpawnStatic = false;
     float m_Accumulator = 0.0f;
 
     // Statistiques
